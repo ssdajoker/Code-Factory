@@ -71,7 +71,7 @@ print_banner() {
 # Get latest release
 get_latest_release() {
     echo "${BLUE}→ Fetching latest release...${NC}"
-    LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    LATEST_RELEASE=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | awk -F'"' '/"tag_name":/ {print $4; exit}')
     
     if [ -z "$LATEST_RELEASE" ]; then
         echo "${RED}✗ Failed to fetch latest release${NC}"
