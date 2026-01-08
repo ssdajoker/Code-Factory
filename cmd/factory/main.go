@@ -6,6 +6,7 @@ import (
 
         "github.com/spf13/cobra"
         "github.com/ssdajoker/Code-Factory/internal/tui"
+        "github.com/ssdajoker/Code-Factory/internal/web"
 )
 
 // Version info - set by ldflags during build
@@ -145,6 +146,19 @@ var llmCmd = &cobra.Command{
         },
 }
 
+var webCmd = &cobra.Command{
+        Use:   "web",
+        Short: "Start web UI server",
+        Run: func(cmd *cobra.Command, args []string) {
+                port, _ := cmd.Flags().GetInt("port")
+                server := web.NewServer(port, "contracts", "reports")
+                if err := server.Start(); err != nil {
+                        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+                        os.Exit(1)
+                }
+        },
+}
+
 func init() {
         // Add subcommands
         rootCmd.AddCommand(versionCmd)
@@ -155,6 +169,7 @@ func init() {
         rootCmd.AddCommand(changeOrderCmd)
         rootCmd.AddCommand(githubCmd)
         rootCmd.AddCommand(llmCmd)
+        rootCmd.AddCommand(webCmd)
 
         // Add flags
         initCmd.Flags().Bool("quick", false, "Quick start with defaults")
@@ -165,6 +180,7 @@ func init() {
         githubCmd.Flags().Bool("status", false, "Show GitHub connection status")
         llmCmd.Flags().Bool("status", false, "Show LLM status")
         llmCmd.Flags().Bool("setup", false, "Setup LLM provider")
+        webCmd.Flags().Int("port", 3333, "Port for web server")
 }
 
 func main() {
