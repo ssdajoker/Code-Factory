@@ -1,449 +1,300 @@
 # Code-Factory 🏭
 
-**Spec-Driven Software Development with AI**
+**Spec-Driven Software Factory** - Turn specifications into reality
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://go.dev/)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)]()
 
 ---
 
-## What is Code-Factory?
+## 🎯 Vision
 
-Code-Factory is a revolutionary development tool that bridges the gap between specifications and implementation. It transforms natural language requirements into production-ready code through AI-powered workflows, while keeping humans firmly in control.
+Code-Factory is a **single-binary, cross-platform tool** that helps developers maintain perfect alignment between specifications and code. It operates in four distinct modes (INTAKE, REVIEW, CHANGE_ORDER, RESCUE) and provides a beautiful terminal UI for an exceptional developer experience.
 
-### Key Features
-
-✨ **Beautiful Terminal UI** - Canvas-style interface built with Charm.sh/Bubble Tea  
-🤖 **AI-Powered** - Works with local Ollama or cloud LLMs (OpenAI, Claude)  
-📝 **Spec-Driven** - Everything starts and ends with clear specifications  
-🔄 **Git-Native** - All artifacts are plain text files in git  
-🚀 **Zero Dependencies** - Single binary, works anywhere  
-🔒 **Privacy-First** - Run completely offline with local LLM  
-🌐 **GitHub Integration** - Seamless OAuth + PR workflows  
+**Key Features:**
+- 🚀 **Zero Dependencies** - Single Go binary, works anywhere
+- 🎨 **Beautiful TUI** - Canvas-style interface using Charm.sh/Bubble Tea
+- 🤖 **LLM Integration** - Ollama (local) or BYOK (OpenAI, Claude, etc.)
+- 🔗 **GitHub Integration** - Seamless OAuth and GitHub App setup
+- 📁 **Git-Native Storage** - Flat files, no database required
+- 🌐 **Cross-Platform** - Linux, macOS, Windows (WSL/Git Bash)
+- 👥 **Team-Friendly** - One person sets up, others clone and go
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
-**macOS / Linux:**
 ```bash
-curl -sSL https://factory.dev/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ssdajoker/Code-Factory/main/scripts/install.sh | sh
 ```
 
-**Homebrew (macOS):**
-```bash
-brew install code-factory
-```
-
-**From Source:**
-```bash
-git clone https://github.com/ssdajoker/Code-Factory.git
-cd Code-Factory
-go build -o factory ./cmd/factory
-sudo mv factory /usr/local/bin/
-```
-
-### First Run
+### Initialize
 
 ```bash
-# Initialize Code-Factory
+cd /path/to/your/project
 factory init
+```
 
-# Follow the interactive setup:
-# 1. Configure LLM (Ollama auto-detected)
-# 2. Optional: Connect to GitHub
-# 3. Create project structure
+### Start Using
+
+```bash
+factory          # Start TUI
+factory intake   # Create specification
+factory review   # Review code against specs
 ```
 
 ---
 
-## The Four Modes
+## 📖 What is Spec-Driven Development?
 
-### 🎯 INTAKE - Capture Requirements
+Spec-Driven Development is a methodology where **specifications are the source of truth** for your software. Instead of code drifting away from documentation, Factory ensures they stay in sync.
 
-Transform ideas into structured specifications:
+**The Problem:**
+- Documentation gets outdated
+- Code doesn't match requirements
+- Technical debt accumulates
+- New team members struggle to understand the system
+
+**The Solution:**
+- Write specs first (or generate from existing code)
+- Factory checks code against specs automatically
+- Track and manage specification drift
+- Keep documentation always up-to-date
+
+---
+
+## 🎭 Four Modes
+
+### 1. INTAKE Mode 📝
+**Capture your vision and create specifications**
+
+Describe what you want to build, and Factory's LLM generates a comprehensive, actionable specification document.
 
 ```bash
 factory intake
 ```
 
-**What it does:**
-- Interactive requirement gathering
-- AI-powered clarifying questions
-- Generate comprehensive specifications
-- Human review and editing
-- Git commit and sync
+### 2. REVIEW Mode 🔍
+**Check code against specifications**
 
-**Example:**
-```bash
-$ factory intake --prompt "Build a REST API for user authentication"
-```
-
----
-
-### 🔍 REVIEW - Analyze Code
-
-Compare code against specifications:
+Factory analyzes your codebase and identifies compliance issues, deviations, and areas for improvement.
 
 ```bash
-factory review src/auth
+factory review
 ```
 
-**What it does:**
-- Scan codebase and match specs
-- Check compliance, security, performance
-- Generate detailed reports with actionable recommendations
-- Track metrics and test coverage
+### 3. CHANGE_ORDER Mode 📊
+**Track specification drift over time**
 
-**Example:**
-```bash
-$ factory review --spec contracts/specs/user-auth.md src/auth
-```
-
----
-
-### ⚙️ CHANGE_ORDER - Implement Changes
-
-Generate code from specifications:
+Detect code changes that deviate from specs, and decide whether to update the spec or revert the change.
 
 ```bash
 factory change-order
 ```
 
-**What it does:**
-- Analyze change request and impact
-- Plan implementation steps
-- Generate code with AI
-- Show diffs for human review
-- Create feature branch + PR
+### 4. RESCUE Mode 🆘
+**Reverse-engineer existing codebase**
 
-**Example:**
-```bash
-$ factory change-order --description "Add password reset functionality"
-```
-
----
-
-### 🚑 RESCUE - Debug & Fix
-
-Diagnose and solve problems:
+Generate specifications from existing code - perfect for legacy projects without documentation.
 
 ```bash
 factory rescue
 ```
 
-**What it does:**
-- Gather context (code, tests, logs, specs)
-- AI-powered root cause analysis
-- Generate solutions
-- Apply fixes and verify
+---
 
-**Example:**
-```bash
-$ factory rescue --problem "Tests failing after adding password reset"
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Factory CLI                         │
+│                  (Single Go Binary)                     │
+└─────────────────────────────────────────────────────────┘
+                          │
+        ┌─────────────────┼─────────────────┐
+        │                 │                 │
+        ▼                 ▼                 ▼
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│  Beautiful  │  │     LLM     │  │   GitHub    │
+│     TUI     │  │ Integration │  │ Integration │
+│  (Bubble    │  │  (Ollama/   │  │  (OAuth +   │
+│    Tea)     │  │   OpenAI)   │  │  App API)   │
+└─────────────┘  └─────────────┘  └─────────────┘
+        │                 │                 │
+        └─────────────────┼─────────────────┘
+                          ▼
+                ┌─────────────────┐
+                │  Git-Native     │
+                │    Storage      │
+                │  /contracts/    │
+                │  /reports/      │
+                └─────────────────┘
+```
+
+**Key Components:**
+- **TUI Layer** - Beautiful terminal interface (Charm.sh/Bubble Tea)
+- **Mode Orchestrator** - INTAKE, REVIEW, CHANGE_ORDER, RESCUE
+- **LLM Layer** - Ollama (local) or cloud providers (OpenAI, Claude, etc.)
+- **GitHub Layer** - OAuth, GitHub App, API integration
+- **Storage Layer** - Markdown files in `/contracts/` and `/reports/`
+
+---
+
+## 📁 Project Structure
+
+```
+your-project/
+├── contracts/              # Specification documents
+│   ├── system_architecture.md
+│   ├── user_authentication.md
+│   └── api_endpoints.md
+├── reports/                # Generated reports
+│   ├── review_2026-01-07.md
+│   └── change_orders/
+│       └── co_001.md
+└── .factory/               # Project-specific config
+    └── config.toml
 ```
 
 ---
 
-## Project Structure
+## 🛠️ Configuration
 
-Code-Factory organizes projects with simple, git-friendly structure:
+### Global Config (`~/.factory/config.toml`)
 
-```
-my-project/
-├── contracts/              # All specifications
-│   ├── specs/              # Feature specs
-│   │   ├── user-auth.md
-│   │   └── api-gateway.md
-│   ├── architecture/       # System design docs
-│   │   └── system-design.md
-│   └── decisions/          # Architecture Decision Records
-│       └── adr-001-use-jwt.md
-├── reports/                # Generated analysis reports
-│   └── review-2026-01-07.md
-└── .factory/               # Factory metadata (gitignored)
-    ├── cache/
-    └── config.yaml
-```
+```toml
+[user]
+name = "Your Name"
+email = "you@example.com"
 
----
+[github]
+token_storage = "keyring"  # or "file", "env"
 
-## Configuration
+[llm]
+provider = "ollama"
+model = "codellama:7b"
+endpoint = "http://localhost:11434"
 
-Code-Factory stores configuration in `~/.config/factory/config.yaml`:
-
-```yaml
-version: "1.0.0"
-
-llm:
-  provider: ollama          # or openai, anthropic, google
-  endpoint: http://localhost:11434
-  model: llama3.2:latest
-  
-github:
-  enabled: true
-  username: yourusername
-  
-project:
-  name: my-awesome-app
-  path: /path/to/project
+[ui]
+theme = "auto"  # auto, light, dark
 ```
 
-### Reconfigure Anytime
+### Project Config (`{project}/.factory/config.toml`)
 
-```bash
-factory config              # View current config
-factory config llm          # Change LLM provider
-factory config github       # GitHub integration
-factory config reset        # Reset to defaults
+```toml
+[project]
+name = "My Project"
+repository = "owner/repo"
+
+[contracts]
+directory = "contracts"
+
+[reports]
+directory = "reports"
 ```
 
 ---
 
-## LLM Providers
+## 🤝 Team Collaboration
 
-### Ollama (Recommended)
+**First Team Member (Admin):**
+1. Run `factory init` (full setup)
+2. Commit `.factory/config.toml` to repository
+3. Share repository with team
 
-**Free, private, local AI:**
-
-```bash
-# Install Ollama
-curl -sSL https://ollama.ai/install.sh | bash
-
-# Pull a model
-ollama pull llama3.2
-
-# Code-Factory auto-detects Ollama
-factory init
-```
-
-**Recommended models:**
-- `llama3.2:latest` - Best overall
-- `codellama:latest` - Optimized for code
-- `deepseek-coder:latest` - Strong coding performance
-
-### BYOK (Bring Your Own Key)
-
-**Cloud LLM options:**
-
-- **OpenAI** (GPT-4, GPT-3.5)
-- **Anthropic** (Claude 3)
-- **Google** (Gemini)
-- **Azure OpenAI**
-- **Custom endpoint** (any OpenAI-compatible API)
-
-Configure during `factory init` or via:
-```bash
-factory config llm
-```
+**Additional Team Members:**
+1. Clone repository
+2. Run `factory init --team`
+3. Authenticate with GitHub (personal account)
+4. Configure LLM (personal preference)
+5. Start using Factory!
 
 ---
 
-## GitHub Integration
+## 📚 Documentation
 
-### Features
-
-- **OAuth Device Flow** - Secure authentication
-- **GitHub App** - Fine-grained permissions
-- **PR Creation** - Auto-generate from CHANGE_ORDER
-- **Spec Sync** - Push specs to repository
-- **Issue Linking** - Connect specs to issues
-
-### Setup
-
-```bash
-factory config github
-
-# Follow prompts:
-# 1. Open https://github.com/login/device
-# 2. Enter provided code
-# 3. Install Code-Factory GitHub App
-# 4. Grant repository access
-```
+- **[User Guide](docs/USER_GUIDE.md)** - Complete user documentation
+- **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture for developers
+- **[Bootstrap Spec](contracts/factory_bootstrap_spec.md)** - Onboarding flow specification
+- **[System Architecture](contracts/system_architecture.md)** - System design
+- **[Mode Specifications](contracts/mode_specifications.md)** - Detailed mode specs
 
 ---
 
-## Examples
+## 🎯 Roadmap
 
-### Full Workflow
+### Phase 1: Foundation (Current)
+- ✅ Core architecture design
+- ✅ Specification documents
+- 🚧 TUI implementation
+- 🚧 LLM integration
+- 🚧 GitHub integration
 
-```bash
-# 1. Create specification
-factory intake --prompt "User authentication with JWT tokens"
+### Phase 2: Core Modes (Q1 2026)
+- 🔜 INTAKE mode
+- 🔜 REVIEW mode
+- 🔜 CHANGE_ORDER mode
+- 🔜 RESCUE mode
 
-# 2. Review existing auth code
-factory review src/auth
+### Phase 3: Polish & Distribution (Q2 2026)
+- 🔜 Installation scripts
+- 🔜 Package managers (Homebrew, Winget, etc.)
+- 🔜 Documentation site
+- 🔜 Example projects
 
-# 3. Implement missing features from spec
-factory change-order --spec contracts/specs/user-auth.md
-
-# 4. Fix any issues
-factory rescue --problem "Login tests failing"
-```
-
-### Advanced Usage
-
-```bash
-# INTAKE: From file
-factory intake --file requirements.txt
-
-# REVIEW: Focus on security
-factory review --focus security src/
-
-# REVIEW: Export as JSON
-factory review --format json --output report.json src/
-
-# CHANGE_ORDER: Dry run (plan only)
-factory change-order --dry-run --description "Add rate limiting"
-
-# CHANGE_ORDER: No PR creation
-factory change-order --no-pr --description "Update dependencies"
-
-# RESCUE: From error log
-factory rescue --error "$(cat error.log)"
-```
+### Phase 4: Advanced Features (Q3 2026)
+- 🔜 Web UI (localhost:3333)
+- 🔜 Plugin system
+- 🔜 CI/CD integration
+- 🔜 Cloud sync (optional)
 
 ---
 
-## Architecture
+## 🤝 Contributing
 
-### Design Principles
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-1. **Simplicity Over Complexity** - Single binary, sensible defaults
-2. **Git-Native Storage** - Plain text files, no databases
-3. **Terminal-First** - Beautiful TUI, keyboard-driven
-4. **Privacy by Default** - Local LLM support, secure secrets
-5. **Human-in-the-Loop** - AI assists, humans validate
-
-### Technology Stack
-
-- **Language:** Go 1.21+
-- **TUI:** Charm.sh (Bubble Tea, Lipgloss, Bubbles)
-- **LLM:** Ollama, OpenAI, Anthropic, Google
-- **Git:** go-git
-- **GitHub:** go-github + OAuth2
-- **Secrets:** OS keyring (Keychain, Secret Service, Credential Manager)
+**Ways to Contribute:**
+- 🐛 Report bugs
+- 💡 Suggest features
+- 📝 Improve documentation
+- 🔧 Submit pull requests
+- ⭐ Star the project
 
 ---
 
-## Development
+## 📄 License
 
-### Building from Source
+Code-Factory is licensed under the [GNU General Public License v3.0](LICENSE).
 
-```bash
-# Clone repository
-git clone https://github.com/ssdajoker/Code-Factory.git
-cd Code-Factory
-
-# Install dependencies
-go mod download
-
-# Build
-go build -o factory ./cmd/factory
-
-# Run tests
-go test ./...
-
-# Run with local changes
-./factory --help
-```
-
-### Project Structure
-
-```
-Code-Factory/
-├── cmd/factory/           # Main entry point
-├── internal/
-│   ├── tui/               # Terminal UI
-│   ├── llm/               # LLM integration
-│   ├── github/            # GitHub integration
-│   ├── modes/             # INTAKE, REVIEW, CHANGE_ORDER, RESCUE
-│   └── core/              # Core utilities
-├── contracts/             # Project specifications
-├── docs/                  # Documentation
-└── README.md
-```
-
-### Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+**TL;DR:**
+- ✅ Use for any purpose
+- ✅ Modify and distribute
+- ✅ Use in commercial projects
+- ⚠️ Must disclose source
+- ⚠️ Must use same license
 
 ---
 
-## Roadmap
+## 🙏 Acknowledgments
 
-### v1.0 (Current)
-- ✅ Core four modes (INTAKE, REVIEW, CHANGE_ORDER, RESCUE)
-- ✅ Ollama + BYOK support
-- ✅ GitHub OAuth integration
-- ✅ Beautiful TUI
-- ✅ Git-native storage
-
-### v1.1 (Next)
-- [ ] Web UI mirror (optional)
-- [ ] Plugin system
-- [ ] Multi-project management
-- [ ] Team collaboration features
-
-### v2.0 (Future)
-- [ ] IDE extensions (VSCode, JetBrains)
-- [ ] CI/CD integration
-- [ ] Real-time co-editing
-- [ ] Knowledge graph
+Built with amazing open-source tools:
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
+- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
+- [Ollama](https://ollama.ai) - Local LLM runtime
+- [Go](https://go.dev) - Programming language
 
 ---
 
-## FAQ
+## 📞 Contact
 
-### Q: Does Code-Factory write code without human review?
-**A:** No. All code changes require explicit human approval. Code-Factory shows diffs, explains changes, and waits for your confirmation.
-
-### Q: Can I use Code-Factory offline?
-**A:** Yes! With Ollama, Code-Factory works completely offline. Only GitHub integration requires internet.
-
-### Q: How much does it cost?
-**A:** Code-Factory is free and open source (MIT license). Ollama is free. Cloud LLMs have their own pricing.
-
-### Q: Is my code sent to external servers?
-**A:** Only if you choose cloud LLMs (OpenAI, Claude). With Ollama, everything stays local.
-
-### Q: What languages does it support?
-**A:** Code-Factory is language-agnostic. It works with any programming language or framework.
-
-### Q: Can I use it with existing projects?
-**A:** Absolutely! Run `factory init` in any project directory.
-
----
-
-## Support
-
-- **Documentation:** [https://docs.code-factory.dev](https://docs.code-factory.dev)
+- **GitHub:** [@ssdajoker](https://github.com/ssdajoker)
 - **Issues:** [GitHub Issues](https://github.com/ssdajoker/Code-Factory/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/ssdajoker/Code-Factory/discussions)
-- **Discord:** [Join our community](https://discord.gg/code-factory)
 
 ---
 
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## Acknowledgments
-
-Code-Factory is built on the shoulders of giants:
-
-- [Charm.sh](https://charm.sh/) - Beautiful TUI framework
-- [Ollama](https://ollama.ai/) - Local LLM runtime
-- [Go](https://go.dev/) - Fast, reliable language
-- All the open source contributors who make this possible
-
----
-
-**Built with ❤️ by developers, for developers**
-
-Transform your development workflow. Start with specs, end with code.
-
-```bash
-factory init
-```
+**Happy Building! 🏭**

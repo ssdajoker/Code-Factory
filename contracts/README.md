@@ -1,123 +1,55 @@
-# Project Contracts
+# Contracts (Specifications)
 
-This directory contains all project specifications and architecture documentation for Code-Factory.
+This directory contains specification documents that describe what the software 
+should do. These serve as the source of truth for the project.
 
-## Structure
+## Current Specifications
 
-### `/specs/`
-Feature specifications - detailed requirements and implementation contracts for individual features.
+- `factory_bootstrap_spec.md` - Complete onboarding and initialization flow
+- `system_architecture.md` - Overall system design and component interaction
+- `mode_specifications.md` - Detailed specs for INTAKE, REVIEW, CHANGE_ORDER, RESCUE modes
 
-*Coming soon: Feature specifications will be placed here as the project develops.*
+## Creating New Specifications
 
-### `/architecture/`
-System architecture documents - high-level design decisions and technical architecture.
+Use Factory's INTAKE mode to create new specifications:
 
-**Current documents:**
-- `system_architecture.md` - Complete system architecture and design patterns
-
-### `/decisions/`
-Architecture Decision Records (ADRs) - track important architectural decisions over time.
-
-*Coming soon: ADRs will be added as architectural decisions are made.*
-
-## Foundation Specifications
-
-The following foundational specifications define the core system:
-
-### 1. **factory_bootstrap_spec.md**
-Comprehensive specification for the one-click onboarding experience (`factory init`).
-
-**Contents:**
-- One-click onboarding flow
-- GitHub OAuth and App installation
-- LLM configuration (Ollama vs BYOK)
-- Secret management strategy
-- Fallback scenarios and error handling
-- UX design and user feedback
-- Technical implementation details
-
-### 2. **system_architecture.md**
-Complete system architecture including component design, data flow, and technology stack.
-
-**Contents:**
-- High-level architecture overview
-- Component architecture (TUI, LLM, GitHub, Modes)
-- Data flow diagrams
-- Storage model (git-native)
-- Integration points
-- Security architecture
-- Performance considerations
-
-### 3. **mode_specifications.md**
-Detailed specifications for all four operational modes.
-
-**Contents:**
-- **INTAKE Mode** - Capture requirements as specs
-- **REVIEW Mode** - Analyze code against specs
-- **CHANGE_ORDER Mode** - Implement changes from specs
-- **RESCUE Mode** - Debug and fix issues
-- Cross-mode features and shared capabilities
-
-## Using Specifications
-
-These specifications serve as the **source of truth** for implementation. When developing:
-
-1. **Read the relevant spec first** - Understand requirements before coding
-2. **Follow the spec exactly** - Deviations should be documented and approved
-3. **Update specs when requirements change** - Keep specs in sync with reality
-4. **Reference specs in PRs** - Link code changes to their specifications
-5. **Review code against specs** - Use Code-Factory's REVIEW mode
-
-## Spec Format
-
-All specifications follow this structure:
-
-```markdown
----
-id: unique-identifier
-title: Feature Title
-status: draft | approved | implemented | deprecated
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-author: username
-tags: [tag1, tag2]
-priority: low | medium | high | critical
----
-
-# Feature Title
-
-## Overview
-Brief description...
-
-## Requirements
-### Functional
-### Non-Functional
-
-## Technical Specification
-...
-
-## Testing Strategy
-...
+```bash
+factory intake
 ```
 
-## Contributing
+Or create manually using the template structure:
 
-When adding new specifications:
+```markdown
+# [Feature Name]
 
-1. Use the template format above
-2. Place in appropriate directory (specs/, architecture/, decisions/)
-3. Link to related specifications
-4. Update this README's structure section
-5. Commit with clear message: `docs: Add specification for X`
+**Version:** 1.0.0
+**Status:** Draft
+**Created:** YYYY-MM-DD
+**Author:** Your Name
 
-## Questions?
+## Overview
+Brief description
 
-For questions about specifications, see:
-- [ARCHITECTURE.md](../docs/ARCHITECTURE.md) - Technical architecture details
-- [README.md](../README.md) - Project overview
-- GitHub Discussions - Community discussions
+## Requirements
+### Functional Requirements
+### Non-Functional Requirements
 
----
+## Technical Design
+### Architecture
+### Components
+### Data Models
+### API Endpoints
 
-**Maintained by:** Code-Factory Core Team  
-**Last updated:** 2026-01-07
+## Implementation Plan
+## Testing Strategy
+## Security Considerations
+## Dependencies
+```
+
+## Best Practices
+
+1. Keep specs up-to-date with code changes
+2. Use clear, actionable language
+3. Include examples and diagrams
+4. Version your specifications
+5. Review specs with your team
