@@ -618,8 +618,14 @@ Content-Type: application/json
 
 **Tier 2: File Encryption (Fallback)**
 - Use AES-256-GCM encryption
-- Derive key from machine ID + user ID
-- Store encrypted token in `~/.factory/github_token.enc`
+- Derive key using Argon2id KDF with:
+  - User-provided password (prompted during setup), OR
+  - High-entropy random key stored securely in `~/.factory/master.key` (0600 permissions)
+- Argon2id parameters: time=1, memory=64MB, threads=4, keyLen=32
+- Store encrypted secrets in `~/.factory/secrets/*.enc`
+- Each encrypted file contains: salt (16 bytes) + nonce (12 bytes) + ciphertext
+
+**Security Note:** Never derive encryption keys from predictable values like machine ID or user ID alone. Always use proper KDF with high-entropy input.
 
 **Tier 3: Plain File (Last Resort)**
 - Store token in `~/.factory/github_token`
