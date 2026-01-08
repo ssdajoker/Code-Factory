@@ -1,4 +1,4 @@
-# Code-Factory System Architecture
+# System Architecture Specification
 
 **Version:** 1.0.0  
 **Status:** Draft  
@@ -7,1176 +7,792 @@
 
 ---
 
-## Table of Contents
+## 1. Overview
 
-1. [Executive Summary](#executive-summary)
-2. [Architecture Principles](#architecture-principles)
-3. [System Overview](#system-overview)
-4. [Component Architecture](#component-architecture)
-5. [Data Flow](#data-flow)
-6. [Storage Model](#storage-model)
-7. [Integration Points](#integration-points)
-8. [Security Architecture](#security-architecture)
-9. [Deployment Model](#deployment-model)
-10. [Scalability & Performance](#scalability--performance)
+The Spec-Driven Software Factory is a single-binary, cross-platform tool that helps developers maintain alignment between specifications and code. It operates in four distinct modes (INTAKE, REVIEW, CHANGE_ORDER, RESCUE) and provides both a beautiful TUI and optional web interface.
 
----
+### 1.1 Design Principles
 
-## Executive Summary
-
-Code-Factory is a **spec-driven software development system** that transforms natural language specifications into production-quality code through AI-powered workflows. The system is designed as a **single, zero-dependency Go binary** with an elegant terminal UI, supporting both local (Ollama) and cloud-based (OpenAI, Claude) LLM providers.
-
-### Key Characteristics
-
-- **Distribution**: Single binary, no dependencies
-- **Interface**: Beautiful TUI (Charm.sh/Bubble Tea) + optional web mirror
-- **Storage**: Git-native flat files (markdown + reports)
-- **AI**: Pluggable LLM backend (Ollama embedded or BYOK)
-- **Integration**: Optional GitHub OAuth for seamless workflow
-- **Target**: Individual developers and small teams
-
-### Design Goals
-
-1. **Effortless**: Install and productive in 60 seconds
-2. **Beautiful**: Terminal-first with aesthetic TUI
-3. **Intelligent**: AI-powered but human-in-the-loop
-4. **Collaborative**: Git-native, PR-ready outputs
-5. **Flexible**: Works offline, online, with any LLM
+1. **Zero Dependencies:** Single Go binary, no external dependencies required
+2. **Beautiful UX:** Canvas-style TUI using Charm.sh/Bubble Tea
+3. **Local-First:** All data stored locally, git-native, no database
+4. **Graceful Degradation:** Works offline, without LLM, without GitHub
+5. **Cross-Platform:** Linux, macOS, Windows (WSL/Git Bash)
+6. **Team-Friendly:** One person sets up, others clone and go
 
 ---
 
-## Architecture Principles
+## 2. System Components
 
-### 1. Simplicity Over Complexity
+### 2.1 Component Diagram
 
-**Rationale:** Developers want tools that "just work" without extensive setup.
-
-**Implementation:**
-- Single binary distribution (no package managers, no dependencies)
-- Sensible defaults for everything
-- Auto-detection and auto-configuration where possible
-- Progressive disclosure of advanced features
-
-### 2. Git-Native Storage
-
-**Rationale:** Developers already know git; don't introduce new data models.
-
-**Implementation:**
-- All specifications are markdown files in `/contracts/`
-- All reports are markdown files in `/reports/`
-- No databases, no proprietary formats
-- Versionable, diffable, reviewable via standard git tools
-
-### 3. Terminal-First Experience
-
-**Rationale:** Developers live in terminals; GUI apps break flow.
-
-**Implementation:**
-- Primary interface is Charm.sh TUI (canvas-style, not line-by-line)
-- Rich interactions: forms, menus, progress indicators
-- Optional web UI as mirror for stakeholders
-- Full keyboard navigation, no mouse required
-
-### 4. Privacy & Security by Default
-
-**Rationale:** Code is sensitive; developers value privacy.
-
-**Implementation:**
-- Prefer local Ollama over cloud LLMs
-- Secrets in OS keyring, never in config files
-- Explicit consent for any external communication
-- Audit log of all AI interactions
-
-### 5. Human-in-the-Loop
-
-**Rationale:** AI is powerful but not infallible; humans must validate.
-
-**Implementation:**
-- All AI outputs require human review
-- Clear diff views before any code changes
-- Undo/rollback mechanisms
-- Rescue mode for when AI goes off-rails
-
-### 6. Extensibility Through Simplicity
-
-**Rationale:** Advanced users want to customize without fighting the tool.
-
-**Implementation:**
-- Plain text files enable any editor/tool integration
-- Plugin system via executable hooks (future)
-- Configuration in YAML, scriptable with any language
-- REST API for web UI enables custom clients
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         Factory CLI                         │
+│                      (cmd/factory)                          │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ├─────────────────────────────┐
+                              │                             │
+                              ▼                             ▼
+┌─────────────────────────────────────┐   ┌─────────────────────────────────┐
+│          TUI Layer                  │   │       HTTP Server               │
+│      (internal/tui)                 │   │    (internal/server)            │
+│                                     │   │                                 │
+│  • Bubble Tea Application           │   │  • localhost:3333               │
+│  • Lipgloss Styling                 │   │  • Web Mirror of TUI            │
+│  • Canvas-Style Interface           │   │  • REST API                     │
+│  • Keyboard Navigation              │   │  • WebSocket for Live Updates   │
+└─────────────────────────────────────┘   └─────────────────────────────────┘
+                              │
+                              ├─────────────────────────────┐
+                              │                             │
+                              ▼                             ▼
+┌─────────────────────────────────────┐   ┌─────────────────────────────────┐
+│         Mode Orchestrator           │   │      Configuration Manager      │
+│      (internal/modes)               │   │      (internal/config)          │
+│                                     │   │                                 │
+│  • INTAKE Mode                      │   │  • TOML Parser                  │
+│  • REVIEW Mode                      │   │  • Secret Management            │
+│  • CHANGE_ORDER Mode                │   │  • Environment Variables        │
+│  • RESCUE Mode                      │   │  • Validation                   │
+└─────────────────────────────────────┘   └─────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+        ▼                     ▼                     ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│   LLM Layer     │  │  GitHub Layer   │  │  Storage Layer  │
+│ (internal/llm)  │  │(internal/github)│  │(internal/store) │
+│                 │  │                 │  │                 │
+│ • Ollama        │  │ • OAuth Flow    │  │ • File I/O      │
+│ • OpenAI        │  │ • GitHub API    │  │ • Git Ops       │
+│ • Anthropic     │  │ • App Install   │  │ • Markdown      │
+│ • Azure         │  │ • Webhooks      │  │ • Templates     │
+│ • Gemini        │  │                 │  │                 │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+```
 
 ---
 
-## System Overview
+## 3. Core Components
 
-### High-Level Architecture
+### 3.1 CLI Entry Point (`cmd/factory`)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER INTERFACE                          │
-│  ┌──────────────────────────┐    ┌────────────────────────────┐│
-│  │   TUI (Primary)          │    │  Web UI (Optional)         ││
-│  │   - Charm.sh/Bubble Tea  │    │  - Embedded HTTP server    ││
-│  │   - Canvas-style display │    │  - View-only mirror        ││
-│  │   - Real-time updates    │    │  - Stakeholder access      ││
-│  └────────────┬─────────────┘    └──────────┬─────────────────┘│
-│               └──────────────┬───────────────┘                  │
-└────────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      COMMAND ORCHESTRATOR                       │
-│  ┌─────────────┬──────────────┬──────────────┬────────────────┐│
-│  │   INTAKE    │    REVIEW    │ CHANGE_ORDER │     RESCUE     ││
-│  │   Mode      │    Mode      │    Mode      │     Mode       ││
-│  └──────┬──────┴──────┬───────┴──────┬───────┴────────┬───────┘│
-│         └─────────────┼──────────────┼────────────────┘        │
-└───────────────────────┼──────────────┼─────────────────────────┘
-                        │              │
-                        ▼              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      CORE SERVICES                              │
-│  ┌──────────────┬──────────────┬──────────────┬──────────────┐ │
-│  │ LLM Layer    │ GitHub API   │ Git Ops      │ File System  │ │
-│  │ - Ollama     │ - OAuth      │ - Commits    │ - Contracts  │ │
-│  │ - OpenAI     │ - App API    │ - Branches   │ - Reports    │ │
-│  │ - Anthropic  │ - REST calls │ - PRs        │ - Templates  │ │
-│  └──────────────┴──────────────┴──────────────┴──────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       DATA LAYER                                │
-│  ┌──────────────┬──────────────┬──────────────┬──────────────┐ │
-│  │ /contracts/  │ /reports/    │ ~/.config/   │ OS Keyring   │ │
-│  │ (specs)      │ (analyses)   │ (config)     │ (secrets)    │ │
-│  └──────────────┴──────────────┴──────────────┴──────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-```
+**Responsibilities:**
+- Parse command-line arguments
+- Initialize configuration
+- Route to appropriate mode or TUI
+- Handle global flags (--version, --help, --debug)
 
-### Component Layers
+**Key Files:**
+- `main.go` - Entry point
+- `commands.go` - Command definitions
+- `flags.go` - Flag parsing
 
-#### Layer 1: User Interface
-- **TUI**: Primary interface for all operations
-- **Web UI**: Optional read-only mirror for non-technical stakeholders
-
-#### Layer 2: Command Orchestrator
-- **Mode Handlers**: INTAKE, REVIEW, CHANGE_ORDER, RESCUE
-- **Workflow Engine**: State machine driving each mode
-- **Validation**: Pre/post checks for operations
-
-#### Layer 3: Core Services
-- **LLM Layer**: Abstraction over multiple LLM providers
-- **GitHub API**: OAuth, App API, REST operations
-- **Git Ops**: Local git operations via go-git
-- **File System**: Safe file I/O with rollback
-
-#### Layer 4: Data Layer
-- **Contracts**: Markdown specs (git-tracked)
-- **Reports**: Analysis outputs (git-tracked)
-- **Config**: User preferences (YAML)
-- **Secrets**: OS keyring integration
-
----
-
-## Component Architecture
-
-### 1. TUI Component
-
-**Technology:** Charm.sh Bubble Tea + Lipgloss + Bubbles
-
-**Architecture:**
-```
-internal/tui/
-├── app.go                 # Main TUI application
-├── models/
-│   ├── base.go            # Base model with common state
-│   ├── intake.go          # INTAKE mode model
-│   ├── review.go          # REVIEW mode model
-│   ├── change_order.go    # CHANGE_ORDER mode model
-│   └── rescue.go          # RESCUE mode model
-├── components/
-│   ├── header.go          # Top status bar
-│   ├── footer.go          # Help/shortcuts bar
-│   ├── sidebar.go         # Mode selector
-│   ├── editor.go          # Spec editor widget
-│   ├── diff_viewer.go     # Code diff display
-│   ├── file_tree.go       # File browser
-│   └── progress.go        # Progress indicators
-├── styles/
-│   └── theme.go           # Color schemes
-└── utils/
-    └── layout.go          # Layout calculations
-```
-
-**Key Features:**
-- **Canvas-style rendering**: Full screen, not line-by-line
-- **Real-time updates**: Progress bars, spinners, status updates
-- **Keyboard-driven**: No mouse required (but supported)
-- **Responsive layout**: Adapts to terminal size
-- **Syntax highlighting**: Via chroma library
-
-**Example Model Structure:**
+**Example Usage:**
 ```go
-type IntakeModel struct {
-    // State
-    step         IntakeStep         // Current step in wizard
-    spec         *Specification     // Spec being created
-    llmResponse  string             // LLM output
-    err          error              // Error state
-    
-    // UI components
-    textInput    textinput.Model    // Text input widget
-    textArea     textarea.Model     // Multi-line editor
-    progress     progress.Model     // Progress bar
-    viewport     viewport.Model     // Scrollable area
-    
-    // Services
-    llm          LLMService
-    git          GitService
-}
+package main
 
-func (m IntakeModel) Init() tea.Cmd {
-    return textinput.Blink
-}
+import (
+    "github.com/ssdajoker/Code-Factory/internal/config"
+    "github.com/ssdajoker/Code-Factory/internal/tui"
+    "github.com/ssdajoker/Code-Factory/internal/modes"
+)
 
-func (m IntakeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
-    case tea.KeyMsg:
-        return m.handleKeypress(msg)
-    case llmResponseMsg:
-        return m.handleLLMResponse(msg)
-    case tea.WindowSizeMsg:
-        return m.handleResize(msg)
+func main() {
+    cfg := config.Load()
+    
+    switch cmd {
+    case "init":
+        modes.RunInit(cfg)
+    case "intake":
+        tui.StartTUI(cfg, modes.IntakeMode)
+    case "review":
+        tui.StartTUI(cfg, modes.ReviewMode)
+    default:
+        tui.StartTUI(cfg, modes.DefaultMode)
     }
-    return m, nil
-}
-
-func (m IntakeModel) View() string {
-    return lipgloss.JoinVertical(
-        lipgloss.Top,
-        m.renderHeader(),
-        m.renderContent(),
-        m.renderFooter(),
-    )
 }
 ```
 
-### 2. LLM Layer
+### 3.2 TUI Layer (`internal/tui`)
 
-**Design:** Provider-agnostic interface with pluggable backends
+**Responsibilities:**
+- Render beautiful terminal interface
+- Handle keyboard/mouse input
+- Manage application state
+- Coordinate with mode implementations
 
-**Architecture:**
-```
-internal/llm/
-├── interface.go           # LLM interface definition
-├── ollama/
-│   ├── client.go          # Ollama API client
-│   └── streaming.go       # Streaming support
-├── openai/
-│   ├── client.go          # OpenAI API client
-│   └── functions.go       # Function calling
-├── anthropic/
-│   └── client.go          # Claude API client
-├── google/
-│   └── client.go          # Gemini API client
-├── azure/
-│   └── client.go          # Azure OpenAI
-├── custom/
-│   └── client.go          # Custom endpoint
-├── provider.go            # Provider factory
-├── prompt_builder.go      # Prompt construction
-└── response_parser.go     # Response parsing
-```
+**Key Components:**
+- `app.go` - Main Bubble Tea application
+- `styles.go` - Lipgloss styling definitions
+- `components/` - Reusable UI components
+  - `banner.go` - Header banners
+  - `menu.go` - Navigation menus
+  - `editor.go` - Text editor component
+  - `list.go` - Scrollable lists
+  - `progress.go` - Progress indicators
+  - `dialog.go` - Modal dialogs
 
-**Interface:**
+**Bubble Tea Model:**
 ```go
-type LLMService interface {
-    // Generate text completion
-    Generate(ctx context.Context, req GenerateRequest) (*GenerateResponse, error)
+type Model struct {
+    mode        modes.Mode
+    currentView string
+    width       int
+    height      int
+    keymap      KeyMap
+    styles      Styles
     
-    // Stream text completion
-    GenerateStream(ctx context.Context, req GenerateRequest) (<-chan GenerateChunk, error)
-    
-    // List available models
-    ListModels(ctx context.Context) ([]Model, error)
-    
-    // Get provider info
-    Provider() string
+    // Mode-specific state
+    modeState   interface{}
 }
 
-type GenerateRequest struct {
-    Prompt      string
-    System      string              // System prompt
+func (m Model) Init() tea.Cmd
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd)
+func (m Model) View() string
+```
+
+### 3.3 Mode Orchestrator (`internal/modes`)
+
+**Responsibilities:**
+- Implement four core modes
+- Coordinate between LLM, GitHub, and Storage layers
+- Manage mode-specific state and workflows
+
+**Mode Interface:**
+```go
+type Mode interface {
+    Name() string
+    Description() string
+    Init(cfg *config.Config) error
+    Run(ctx context.Context) error
+    HandleInput(input string) (Response, error)
+    Cleanup() error
+}
+```
+
+**Modes:**
+
+#### 3.3.1 INTAKE Mode
+- **Purpose:** Capture project vision and create specifications
+- **Workflow:**
+  1. Prompt user for project description
+  2. Use LLM to generate structured spec
+  3. Allow user to edit and refine
+  4. Save to `/contracts/` directory
+  5. Optionally commit to git
+
+#### 3.3.2 REVIEW Mode
+- **Purpose:** Check code against specifications
+- **Workflow:**
+  1. Load specs from `/contracts/`
+  2. Scan codebase for relevant files
+  3. Use LLM to compare code vs spec
+  4. Generate compliance report
+  5. Highlight deviations and suggest fixes
+  6. Save report to `/reports/`
+
+#### 3.3.3 CHANGE_ORDER Mode
+- **Purpose:** Track specification drift over time
+- **Workflow:**
+  1. Detect changes in codebase (git diff)
+  2. Compare changes against specs
+  3. Identify intentional vs unintentional drift
+  4. Create change order document
+  5. Optionally create GitHub issue
+  6. Update specs if change is approved
+
+#### 3.3.4 RESCUE Mode
+- **Purpose:** Reverse-engineer existing codebase into specs
+- **Workflow:**
+  1. Scan entire codebase
+  2. Use LLM to infer architecture and patterns
+  3. Generate specification documents
+  4. Create dependency diagrams
+  5. Identify technical debt
+  6. Save generated specs to `/contracts/`
+
+### 3.4 LLM Layer (`internal/llm`)
+
+**Responsibilities:**
+- Abstract LLM provider differences
+- Handle API calls and streaming
+- Manage context windows and token limits
+- Implement fallback strategies
+
+**Provider Interface:**
+```go
+type Provider interface {
+    Name() string
+    IsAvailable() bool
+    Complete(ctx context.Context, prompt string, opts Options) (string, error)
+    Stream(ctx context.Context, prompt string, opts Options) (<-chan string, error)
+    Models() []string
+}
+```
+
+**Implementations:**
+- `ollama.go` - Local Ollama integration
+- `openai.go` - OpenAI API
+- `anthropic.go` - Claude API
+- `azure.go` - Azure OpenAI
+- `gemini.go` - Google Gemini
+
+**Prompt Templates:**
+- `prompts/intake.tmpl` - Spec generation prompts
+- `prompts/review.tmpl` - Code review prompts
+- `prompts/change_order.tmpl` - Change detection prompts
+- `prompts/rescue.tmpl` - Reverse engineering prompts
+
+### 3.5 GitHub Layer (`internal/github`)
+
+**Responsibilities:**
+- OAuth authentication flow
+- GitHub App installation
+- API interactions (repos, issues, PRs)
+- Webhook handling (optional)
+
+**Key Components:**
+- `oauth.go` - OAuth flow implementation
+- `app.go` - GitHub App management
+- `api.go` - GitHub API client wrapper
+- `webhooks.go` - Webhook server (optional)
+
+**API Client:**
+```go
+type Client struct {
+    token      string
+    httpClient *http.Client
+    github     *github.Client
+}
+
+func (c *Client) GetRepo(owner, repo string) (*Repository, error)
+func (c *Client) CreateIssue(owner, repo string, issue *Issue) error
+func (c *Client) ListPRs(owner, repo string) ([]*PullRequest, error)
+func (c *Client) CommentOnPR(owner, repo string, number int, comment string) error
+```
+
+### 3.6 Storage Layer (`internal/store`)
+
+**Responsibilities:**
+- Read/write specifications
+- Generate reports
+- Manage git operations
+- Handle file templates
+
+**Key Components:**
+- `contracts.go` - Spec file management
+- `reports.go` - Report generation
+- `git.go` - Git operations wrapper
+- `templates.go` - Template rendering
+
+**Contract Store:**
+```go
+type ContractStore struct {
+    basePath string
+}
+
+func (s *ContractStore) List() ([]*Contract, error)
+func (s *ContractStore) Get(name string) (*Contract, error)
+func (s *ContractStore) Save(contract *Contract) error
+func (s *ContractStore) Delete(name string) error
+```
+
+### 3.7 Configuration Manager (`internal/config`)
+
+**Responsibilities:**
+- Load configuration from files and environment
+- Validate configuration
+- Manage secrets securely
+- Provide defaults
+
+**Configuration Structure:**
+```go
+type Config struct {
+    User     UserConfig
+    GitHub   GitHubConfig
+    LLM      LLMConfig
+    UI       UIConfig
+    Project  ProjectConfig
+}
+
+type UserConfig struct {
+    Name  string
+    Email string
+}
+
+type GitHubConfig struct {
+    Token         string
+    TokenStorage  string // "keyring", "file", "env"
+    DefaultOrg    string
+}
+
+type LLMConfig struct {
+    Provider    string
+    Model       string
+    Endpoint    string
+    APIKey      string
     Temperature float64
     MaxTokens   int
-    Stop        []string
-    Context     map[string]string   // Additional context
+    Fallback    *LLMConfig
 }
 
-type GenerateResponse struct {
-    Text         string
-    TokensUsed   int
-    FinishReason string
-    Model        string
+type UIConfig struct {
+    Theme   string // "auto", "light", "dark"
+    Editor  string
+    Browser string
 }
-```
 
-**Provider Selection Logic:**
-```go
-func NewLLMService(cfg *config.LLMConfig) (LLMService, error) {
-    switch cfg.Provider {
-    case "ollama":
-        return ollama.NewClient(cfg.Endpoint, cfg.Model)
-    case "openai":
-        apiKey, _ := secrets.Get(cfg.APIKeyRef)
-        return openai.NewClient(apiKey, cfg.Model)
-    case "anthropic":
-        apiKey, _ := secrets.Get(cfg.APIKeyRef)
-        return anthropic.NewClient(apiKey, cfg.Model)
-    // ... other providers
-    default:
-        return nil, fmt.Errorf("unknown provider: %s", cfg.Provider)
-    }
+type ProjectConfig struct {
+    Name              string
+    Repository        string
+    ContractsDir      string
+    ReportsDir        string
+    GitHubAppInstalled bool
+    InstallationID    int64
 }
 ```
 
-**Prompt Engineering:**
-```go
-type PromptBuilder struct {
-    mode     string
-    context  *Context
-    template *template.Template
-}
+---
 
-func (pb *PromptBuilder) Build() string {
-    // Load mode-specific template
-    tmpl := pb.loadTemplate(pb.mode)
-    
-    // Inject context
-    data := map[string]interface{}{
-        "Mode":        pb.mode,
-        "UserInput":   pb.context.UserInput,
-        "CodeContext": pb.context.CodeSnippets,
-        "Spec":        pb.context.ExistingSpec,
-    }
-    
-    var buf bytes.Buffer
-    tmpl.Execute(&buf, data)
-    return buf.String()
-}
+## 4. Data Flow
+
+### 4.1 INTAKE Mode Flow
+
+```
+User Input (Vision)
+    │
+    ▼
+TUI (Capture Input)
+    │
+    ▼
+LLM Layer (Generate Spec)
+    │
+    ▼
+TUI (Display Draft)
+    │
+    ▼
+User (Edit & Refine)
+    │
+    ▼
+Storage Layer (Save to /contracts/)
+    │
+    ▼
+Git Layer (Optional Commit)
+    │
+    ▼
+GitHub Layer (Optional Push)
 ```
 
-### 3. GitHub Integration
+### 4.2 REVIEW Mode Flow
 
-**Architecture:**
 ```
-internal/github/
-├── oauth.go               # Device flow OAuth
-├── app.go                 # GitHub App API
-├── client.go              # REST API client
-├── operations/
-│   ├── branch.go          # Branch operations
-│   ├── commit.go          # Commit operations
-│   ├── pr.go              # Pull request operations
-│   └── issue.go           # Issue operations
-├── webhook.go             # Webhook handling (future)
-└── sync.go                # Bi-directional sync
-```
-
-**Key Operations:**
-
-```go
-type GitHubService interface {
-    // OAuth
-    InitiateDeviceFlow() (*DeviceCode, error)
-    PollForToken(deviceCode string) (string, error)
-    
-    // Repository
-    ListRepos() ([]Repository, error)
-    GetRepo(owner, name string) (*Repository, error)
-    
-    // Branch & Commit
-    CreateBranch(repo, branch, baseBranch string) error
-    Commit(repo, branch string, files []FileChange) error
-    
-    // Pull Request
-    CreatePR(repo string, pr *PullRequest) (*PullRequest, error)
-    UpdatePR(repo string, prNumber int, updates *PRUpdate) error
-    MergePR(repo string, prNumber int) error
-    
-    // Issues
-    CreateIssue(repo string, issue *Issue) (*Issue, error)
-}
+Storage Layer (Load Specs)
+    │
+    ▼
+Git Layer (Get Changed Files)
+    │
+    ▼
+Storage Layer (Load Code Files)
+    │
+    ▼
+LLM Layer (Compare Code vs Spec)
+    │
+    ▼
+TUI (Display Results)
+    │
+    ▼
+Storage Layer (Generate Report)
+    │
+    ▼
+GitHub Layer (Optional PR Comment)
 ```
 
-**PR Creation Workflow:**
-```go
-func (s *GitHubService) CreateChangeOrderPR(
-    repo string,
-    spec *Specification,
-    changes []CodeChange,
-) (*PullRequest, error) {
-    // 1. Create feature branch
-    branchName := fmt.Sprintf("factory/change-%s", spec.ID)
-    if err := s.CreateBranch(repo, branchName, "main"); err != nil {
-        return nil, err
-    }
-    
-    // 2. Commit changes
-    files := make([]FileChange, len(changes))
-    for i, change := range changes {
-        files[i] = FileChange{
-            Path:    change.Path,
-            Content: change.NewContent,
-        }
-    }
-    if err := s.Commit(repo, branchName, files); err != nil {
-        return nil, err
-    }
-    
-    // 3. Create PR
-    pr := &PullRequest{
-        Title:  spec.Title,
-        Body:   s.generatePRBody(spec, changes),
-        Head:   branchName,
-        Base:   "main",
-        Labels: []string{"code-factory", "automated"},
-    }
-    return s.CreatePR(repo, pr)
-}
+### 4.3 CHANGE_ORDER Mode Flow
+
+```
+Git Layer (Detect Changes)
+    │
+    ▼
+Storage Layer (Load Relevant Specs)
+    │
+    ▼
+LLM Layer (Analyze Drift)
+    │
+    ▼
+TUI (Display Change Order)
+    │
+    ▼
+User (Approve/Reject)
+    │
+    ├─ Approve ─▶ Storage Layer (Update Spec)
+    │
+    └─ Reject ──▶ GitHub Layer (Create Issue)
 ```
 
-### 4. Mode Handlers
+### 4.4 RESCUE Mode Flow
 
-Each mode is a self-contained workflow with its own state machine.
-
-**Architecture:**
 ```
-internal/modes/
-├── intake/
-│   ├── handler.go         # Main handler
-│   ├── wizard.go          # Step-by-step wizard
-│   ├── spec_generator.go  # LLM-powered spec gen
-│   └── validator.go       # Spec validation
-├── review/
-│   ├── handler.go
-│   ├── analyzer.go        # Code analysis
-│   ├── reporter.go        # Report generation
-│   └── suggestions.go     # Improvement suggestions
-├── change_order/
-│   ├── handler.go
-│   ├── planner.go         # Change planning
-│   ├── implementer.go     # Code generation
-│   └── pr_creator.go      # PR creation
-└── rescue/
-    ├── handler.go
-    ├── detector.go        # Issue detection
-    ├── debugger.go        # Problem diagnosis
-    └── fixer.go           # Solution generator
+Git Layer (Scan Codebase)
+    │
+    ▼
+Storage Layer (Load All Files)
+    │
+    ▼
+LLM Layer (Infer Architecture)
+    │
+    ▼
+LLM Layer (Generate Specs)
+    │
+    ▼
+TUI (Display Generated Specs)
+    │
+    ▼
+User (Review & Edit)
+    │
+    ▼
+Storage Layer (Save to /contracts/)
 ```
 
-**Handler Interface:**
-```go
-type ModeHandler interface {
-    // Initialize mode
-    Init(ctx context.Context) error
-    
-    // Run the mode workflow
-    Run(ctx context.Context, input ModeInput) (*ModeOutput, error)
-    
-    // Get current state
-    State() ModeState
-    
-    // Handle user input
-    HandleInput(input string) error
-}
+---
+
+## 5. File System Layout
+
+### 5.1 Global Configuration
+
+```
+~/.factory/
+├── config.toml              # User preferences
+├── github_token             # OAuth token (encrypted)
+├── logs/
+│   ├── github.log           # GitHub API calls
+│   ├── llm.log              # LLM queries
+│   └── factory.log          # General logs
+├── cache/
+│   ├── ollama_models/       # Cached Ollama models
+│   └── github_repos/        # Cached repo metadata
+└── templates/
+    ├── spec_template.md     # Default spec template
+    └── report_template.md   # Default report template
 ```
 
-**Example: INTAKE Mode Flow:**
-```go
-type IntakeHandler struct {
-    llm    LLMService
-    git    GitService
-    github GitHubService
-    state  IntakeState
-}
+### 5.2 Project Structure
 
-func (h *IntakeHandler) Run(ctx context.Context, input ModeInput) (*ModeOutput, error) {
-    // Step 1: Gather requirements
-    requirements, err := h.gatherRequirements(ctx, input)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Step 2: Generate spec via LLM
-    spec, err := h.generateSpec(ctx, requirements)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Step 3: User review & edit
-    spec, err = h.reviewSpecWithUser(ctx, spec)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Step 4: Save to /contracts/
-    if err := h.saveSpec(spec); err != nil {
-        return nil, err
-    }
-    
-    // Step 5: Commit to git
-    if err := h.git.Commit("Add spec: " + spec.Title); err != nil {
-        return nil, err
-    }
-    
-    // Step 6: Optional GitHub push
-    if input.PushToGitHub {
-        if err := h.github.PushSpec(spec); err != nil {
-            return nil, err
-        }
-    }
-    
-    return &ModeOutput{
-        Success: true,
-        Spec:    spec,
-        Message: "Specification created successfully",
-    }, nil
-}
-```
-
-### 5. Storage & File System
-
-**Storage Strategy:** Git-native flat files
-
-**Directory Structure:**
 ```
 project-root/
-├── contracts/                  # All specifications
-│   ├── README.md              # Index & guide
-│   ├── specs/
-│   │   ├── feature-001.md     # Individual features
-│   │   ├── feature-002.md
-│   │   └── ...
-│   ├── architecture/
-│   │   ├── system-design.md   # High-level design
-│   │   ├── data-model.md      # Data structures
-│   │   └── api-spec.md        # API contracts
-│   └── decisions/
-│       ├── adr-001-use-go.md  # Architecture decisions
-│       └── adr-002-tui.md
-├── reports/                    # Generated reports
-│   ├── review-2026-01-07.md   # Review outputs
-│   ├── analysis-dashboard.md  # Aggregated metrics
-│   └── change-log.md          # History of changes
-├── .factory/                   # Factory metadata (gitignored)
-│   ├── cache/                 # LLM response cache
-│   └── temp/                  # Temporary files
-└── .gitignore
+├── .factory/
+│   ├── config.toml          # Project-specific config
+│   ├── cache/               # Local cache (gitignored)
+│   └── temp/                # Temporary files (gitignored)
+├── contracts/
+│   ├── README.md
+│   ├── system_architecture.md
+│   ├── mode_specifications.md
+│   └── features/
+│       ├── feature_a.md
+│       └── feature_b.md
+└── reports/
+    ├── README.md
+    ├── review_2026-01-07.md
+    └── change_orders/
+        └── co_001.md
 ```
 
-**File Operations:**
+---
+
+## 6. Security Architecture
+
+### 6.1 Secret Management
+
+**Token Storage Hierarchy:**
+1. **System Keyring (Preferred)**
+   - macOS: Keychain Access
+   - Windows: Credential Manager
+   - Linux: Secret Service API
+
+2. **Encrypted File (Fallback)**
+   - AES-256-GCM encryption
+   - Key derived from machine ID + user ID
+
+3. **Plain File (Last Resort)**
+   - Warn user about security implications
+   - Recommend environment variable instead
+
+**Implementation:**
 ```go
-type FileService interface {
-    // Read
-    ReadSpec(path string) (*Specification, error)
-    ListSpecs(dir string) ([]*Specification, error)
-    
-    // Write
-    WriteSpec(spec *Specification) error
-    UpdateSpec(spec *Specification) error
-    DeleteSpec(path string) error
-    
-    // Reports
-    WriteReport(report *Report) error
-    
-    // Templates
-    LoadTemplate(name string) (*template.Template, error)
+type SecretStore interface {
+    Store(key, value string) error
+    Retrieve(key string) (string, error)
+    Delete(key string) error
 }
+
+// Implementations
+type KeyringStore struct { ... }
+type EncryptedFileStore struct { ... }
+type PlainFileStore struct { ... }
 ```
 
-**Spec Format:**
-```markdown
----
-id: feature-001
-title: User Authentication
-status: draft
-created: 2026-01-07
-updated: 2026-01-07
-author: johndoe
-tags: [auth, security, backend]
----
+### 6.2 API Security
 
-# User Authentication
+**GitHub Token:**
+- Minimum required scopes
+- Token rotation every 90 days
+- Revocation on logout
 
-## Overview
-This specification defines the user authentication system...
+**LLM API Keys:**
+- Never logged or displayed
+- Stored in keyring when possible
+- Option to use environment variables
 
-## Requirements
-- Users must be able to sign up with email
-- Passwords must be hashed with bcrypt
-- JWT tokens for session management
+### 6.3 Data Privacy
 
-## API Endpoints
-- POST /api/auth/signup
-- POST /api/auth/login
-- POST /api/auth/logout
+**Local-First:**
+- All specs stored locally
+- Reports generated locally
+- No telemetry by default
 
-## Security Considerations
-...
-```
-
-**Git Operations:**
-```go
-type GitService interface {
-    // Status
-    Status() (*GitStatus, error)
-    
-    // Basic operations
-    Add(files []string) error
-    Commit(message string) error
-    Push(remote, branch string) error
-    Pull(remote, branch string) error
-    
-    // Branching
-    CreateBranch(name string) error
-    SwitchBranch(name string) error
-    
-    // History
-    Log(limit int) ([]*Commit, error)
-    Diff(ref1, ref2 string) (*Diff, error)
-}
-```
+**Cloud LLM Privacy:**
+- Warn user when using cloud LLMs
+- Option to redact sensitive data
+- Option to use local Ollama
 
 ---
 
-## Data Flow
+## 7. Performance Considerations
 
-### INTAKE Mode Flow
+### 7.1 Startup Time
 
-```
-┌──────────┐
-│  User    │ "I need user authentication with JWT"
-└────┬─────┘
-     │
-     ▼
-┌──────────────────────────────────────────┐
-│  INTAKE Mode Handler                     │
-│  ┌────────────────────────────────────┐  │
-│  │ 1. Requirement Gathering           │  │
-│  │    - Interactive Q&A               │  │
-│  │    - Clarifying questions          │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 2. LLM Spec Generation             │  │
-│  │    - Send to LLM with template     │  │
-│  │    - Stream response to UI         │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 3. User Review & Edit              │  │
-│  │    - Show generated spec           │  │
-│  │    - Allow inline editing          │  │
-│  │    - Validate completeness         │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 4. Save to Contracts               │  │
-│  │    - Write markdown file           │  │
-│  │    - Update index                  │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 5. Git Commit                      │  │
-│  │    - Stage new spec                │  │
-│  │    - Commit with message           │  │
-│  └────────────────────────────────────┘  │
-└──────────────────────────────────────────┘
-     │
-     ▼
-┌──────────────────────────────────────────┐
-│  contracts/specs/feature-auth.md         │
-└──────────────────────────────────────────┘
-```
+**Target:** < 100ms cold start
 
-### REVIEW Mode Flow
+**Optimizations:**
+- Lazy load LLM providers
+- Defer GitHub API calls
+- Cache configuration
+- Minimal dependencies
 
-```
-┌──────────┐
-│  User    │ "Review my authentication code"
-└────┬─────┘
-     │
-     ▼
-┌──────────────────────────────────────────┐
-│  REVIEW Mode Handler                     │
-│  ┌────────────────────────────────────┐  │
-│  │ 1. Code Discovery                  │  │
-│  │    - Scan specified directory      │  │
-│  │    - Build file tree               │  │
-│  │    - Detect languages              │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 2. Match with Specs                │  │
-│  │    - Load contracts/specs/         │  │
-│  │    - Match by tags/keywords        │  │
-│  │    - Build context                 │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 3. LLM Analysis                    │  │
-│  │    - Send code + spec to LLM       │  │
-│  │    - Check for spec compliance     │  │
-│  │    - Identify gaps & issues        │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 4. Generate Report                 │  │
-│  │    - Format findings               │  │
-│  │    - Add suggestions               │  │
-│  │    - Calculate metrics             │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 5. Save Report                     │  │
-│  │    - Write to reports/             │  │
-│  │    - Commit to git                 │  │
-│  └────────────────────────────────────┘  │
-└──────────────────────────────────────────┘
-     │
-     ▼
-┌──────────────────────────────────────────┐
-│  reports/review-2026-01-07.md            │
-└──────────────────────────────────────────┘
-```
+### 7.2 LLM Response Time
 
-### CHANGE_ORDER Mode Flow
+**Target:** < 5 seconds for typical queries
 
-```
-┌──────────┐
-│  User    │ "Add password reset feature"
-└────┬─────┘
-     │
-     ▼
-┌──────────────────────────────────────────┐
-│  CHANGE_ORDER Mode Handler               │
-│  ┌────────────────────────────────────┐  │
-│  │ 1. Change Request Analysis         │  │
-│  │    - Parse request                 │  │
-│  │    - Identify affected specs       │  │
-│  │    - Detect affected files         │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 2. Impact Analysis                 │  │
-│  │    - Calculate change scope        │  │
-│  │    - Identify dependencies         │  │
-│  │    - Estimate effort               │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 3. Change Planning                 │  │
-│  │    - Generate change plan          │  │
-│  │    - List files to modify          │  │
-│  │    - Show user for approval        │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 4. Code Generation                 │  │
-│  │    - LLM generates code changes    │  │
-│  │    - Show diffs to user            │  │
-│  │    - Allow edits                   │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 5. Apply Changes                   │  │
-│  │    - Write modified files          │  │
-│  │    - Update specs if needed        │  │
-│  │    - Commit to new branch          │  │
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │ 6. Create PR (optional)            │  │
-│  │    - Push to GitHub                │  │
-│  │    - Create pull request           │  │
-│  │    - Link to spec                  │  │
-│  └────────────────────────────────────┘  │
-└──────────────────────────────────────────┘
-     │
-     ▼
-┌──────────────────────────────────────────┐
-│  GitHub PR #123                          │
-│  "Add password reset feature"            │
-└──────────────────────────────────────────┘
-```
+**Optimizations:**
+- Stream responses for immediate feedback
+- Use smaller models for simple tasks
+- Cache common prompts
+- Parallel processing where possible
+
+### 7.3 File I/O
+
+**Target:** < 1 second for typical projects
+
+**Optimizations:**
+- Incremental file scanning
+- Git-based change detection
+- Parallel file reading
+- Memory-mapped files for large codebases
 
 ---
 
-## Storage Model
+## 8. Error Handling
 
-### Configuration Files
+### 8.1 Error Categories
 
-**~/.config/factory/config.yaml:**
-```yaml
-version: "1.0.0"
-user:
-  name: "John Doe"
-  email: "john@example.com"
+1. **User Errors:** Invalid input, missing configuration
+2. **Network Errors:** GitHub API failures, LLM timeouts
+3. **System Errors:** File I/O failures, permission issues
+4. **Logic Errors:** Unexpected state, assertion failures
 
-llm:
-  provider: "ollama"
-  endpoint: "http://localhost:11434"
-  model: "llama3.2:latest"
-  options:
-    temperature: 0.7
-    num_ctx: 8192
+### 8.2 Error Recovery
 
-github:
-  enabled: true
-  username: "johndoe"
-  token_ref: "github.oauth.token"
-  app_installed: true
+**Graceful Degradation:**
+- Offline mode when GitHub unavailable
+- Manual mode when LLM unavailable
+- Read-only mode when permissions insufficient
 
-ui:
-  theme: "auto"  # auto, light, dark
-  animations: true
-  syntax_highlight: true
+**User Feedback:**
+- Clear error messages
+- Actionable recovery steps
+- Links to documentation
+- Option to report bugs
 
-projects:
-  current: "/home/user/projects/my-app"
-  recent:
-    - "/home/user/projects/my-app"
-    - "/home/user/projects/another-app"
-```
+### 8.3 Logging
 
-### Secrets (OS Keyring)
+**Log Levels:**
+- DEBUG: Detailed diagnostic information
+- INFO: General informational messages
+- WARN: Warning messages (non-critical)
+- ERROR: Error messages (recoverable)
+- FATAL: Fatal errors (unrecoverable)
 
-**Stored securely, never in config files:**
-
-```
-Service: "factory"
-Accounts:
-  - "llm.openai.key"           → "sk-..."
-  - "llm.anthropic.key"        → "sk-ant-..."
-  - "github.oauth.token"       → "ghp_..."
-  - "github.installation.token" → "ghs_..."
-```
-
-### Project Files
-
-**contracts/specs/template.md:**
-```markdown
----
-id: {auto-generated}
-title: {Feature Title}
-status: draft | approved | implemented | deprecated
-created: {ISO date}
-updated: {ISO date}
-author: {username}
-tags: [{tag1}, {tag2}]
-priority: low | medium | high | critical
----
-
-# {Feature Title}
-
-## Overview
-Brief description of the feature...
-
-## Requirements
-
-### Functional
-- Requirement 1
-- Requirement 2
-
-### Non-Functional
-- Performance targets
-- Security requirements
-
-## API Specification
-Detailed API contracts...
-
-## Data Model
-Database schema, data structures...
-
-## Implementation Notes
-Technical considerations...
-
-## Testing Strategy
-How to verify implementation...
-
-## Related Specs
-- [Link to related spec](./other-spec.md)
-```
+**Log Rotation:**
+- Daily rotation
+- Keep 30 days of logs
+- Compress old logs
+- User can clear logs
 
 ---
 
-## Integration Points
+## 9. Testing Strategy
 
-### External Services
+### 9.1 Unit Tests
 
-1. **Ollama** (optional)
-   - Endpoint: http://localhost:11434
-   - Protocol: HTTP REST
-   - Auth: None (local)
+**Coverage Target:** > 80%
 
-2. **OpenAI** (optional)
-   - Endpoint: https://api.openai.com/v1
-   - Protocol: HTTP REST
-   - Auth: Bearer token
+**Key Areas:**
+- Configuration parsing
+- LLM prompt generation
+- GitHub API interactions
+- File I/O operations
+- Template rendering
 
-3. **Anthropic** (optional)
-   - Endpoint: https://api.anthropic.com/v1
-   - Protocol: HTTP REST
-   - Auth: x-api-key header
+### 9.2 Integration Tests
 
-4. **GitHub** (optional)
-   - Endpoint: https://api.github.com
-   - Protocol: HTTP REST
-   - Auth: OAuth device flow
+**Test Scenarios:**
+- End-to-end mode workflows
+- OAuth flow (mocked)
+- LLM integration (mocked)
+- Git operations (real)
 
-### Internal Communication
+### 9.3 E2E Tests
 
-**TUI ↔ Core Services:**
-- Protocol: In-process function calls (Go)
-- Pattern: Command pattern with async execution
-- Error handling: Result types (value, error)
-
-**Web UI ↔ Core Services:**
-- Protocol: HTTP REST + WebSocket
-- API: RESTful JSON
-- Real-time updates: WebSocket for progress
+**Test Scenarios:**
+- Installation on different platforms
+- First-time setup flow
+- Team setup flow
+- Offline mode
+- Error recovery
 
 ---
 
-## Security Architecture
+## 10. Deployment Architecture
 
-### Threat Model
+### 10.1 Binary Distribution
 
-**Assets:**
-- Source code
-- API keys (OpenAI, GitHub)
-- OAuth tokens
-- Specifications (may contain sensitive info)
+**Platforms:**
+- Linux: amd64, arm64
+- macOS: amd64 (Intel), arm64 (Apple Silicon)
+- Windows: amd64 (via WSL or Git Bash)
 
-**Threats:**
-1. API key leakage
-2. Unauthorized access to GitHub repos
-3. Malicious code injection via LLM
-4. Credential theft from config files
+**Distribution Channels:**
+- GitHub Releases (primary)
+- Homebrew (macOS/Linux)
+- Winget (Windows)
+- Docker (cross-platform)
+- Nix (NixOS)
 
-### Security Controls
+### 10.2 Release Process
 
-1. **Secret Management**
-   - OS keyring for sensitive data
-   - No secrets in config files or logs
-   - Encrypted fallback for systems without keyring
+1. **Version Bump:** Update version in code
+2. **Changelog:** Generate from git commits
+3. **Build:** Cross-compile for all platforms
+4. **Test:** Run E2E tests on each platform
+5. **Sign:** Code sign binaries (macOS, Windows)
+6. **Checksum:** Generate SHA256 checksums
+7. **Release:** Create GitHub release
+8. **Publish:** Update package managers
 
-2. **Network Security**
-   - HTTPS for all external APIs
-   - Certificate validation
-   - Timeout and retry limits
+### 10.3 Update Mechanism
 
-3. **Input Validation**
-   - Sanitize all user inputs
-   - Validate LLM outputs before execution
-   - Path traversal prevention
+**Auto-Update (Future):**
+- Check for updates on startup (opt-in)
+- Download and verify new binary
+- Replace old binary atomically
+- Restart with new version
 
-4. **Audit Logging**
-   - Log all LLM interactions
-   - Log all GitHub API calls
-   - Never log secrets
-
-5. **Least Privilege**
-   - GitHub OAuth: minimal scopes
-   - File system: only project directory
-   - Network: only necessary endpoints
-
----
-
-## Deployment Model
-
-### Distribution
-
-**Single Binary:**
+**Manual Update:**
 ```bash
-# macOS (Intel)
-factory-darwin-amd64
-
-# macOS (Apple Silicon)
-factory-darwin-arm64
-
-# Linux (x86_64)
-factory-linux-amd64
-
-# Linux (ARM64)
-factory-linux-arm64
-
-# Windows
-factory-windows-amd64.exe
+factory update
 ```
 
-**Installation:**
-```bash
-# Via curl
-curl -sSL https://factory.dev/install.sh | bash
+---
 
-# Via brew (macOS)
-brew install code-factory
+## 11. Extensibility
 
-# Via apt (Ubuntu/Debian)
-sudo apt install code-factory
+### 11.1 Plugin System (Future)
 
-# Manual
-wget https://factory.dev/releases/v1.0.0/factory-linux-amd64
-chmod +x factory-linux-amd64
-sudo mv factory-linux-amd64 /usr/local/bin/factory
-```
-
-### Configuration
-
-**Locations (in order of precedence):**
-1. Command-line flags: `--config=/path/to/config.yaml`
-2. Environment variable: `FACTORY_CONFIG`
-3. Project directory: `./.factory/config.yaml`
-4. User config: `~/.config/factory/config.yaml`
-5. System config: `/etc/factory/config.yaml`
-
-### Updates
-
-**Auto-update mechanism:**
+**Plugin Interface:**
 ```go
-func CheckForUpdates() (*UpdateInfo, error) {
-    resp, err := http.Get("https://api.github.com/repos/ssdajoker/Code-Factory/releases/latest")
-    // Parse response, compare versions
-    // If newer version: prompt user to update
-}
-
-func UpdateSelf(version string) error {
-    // Download new binary
-    // Verify checksum
-    // Replace current binary
-    // Re-exec
+type Plugin interface {
+    Name() string
+    Version() string
+    Init(cfg *config.Config) error
+    RegisterCommands() []Command
+    RegisterModes() []Mode
+    Shutdown() error
 }
 ```
 
-**User prompt:**
-```
-New version available: v1.1.0 (current: v1.0.0)
+**Plugin Discovery:**
+- Load from `~/.factory/plugins/`
+- Verify plugin signature
+- Sandbox plugin execution
 
-Release notes:
-  - Added support for Azure OpenAI
-  - Improved spec parsing
-  - Bug fixes
+### 11.2 Custom Modes
 
-[Update now] [Skip this version] [Remind me later]
-```
+**User-Defined Modes:**
+- Define in `~/.factory/modes/`
+- Use Lua or JavaScript for scripting
+- Access to core APIs (LLM, GitHub, Storage)
 
----
+### 11.3 Custom Templates
 
-## Scalability & Performance
-
-### Performance Targets
-
-| Metric | Target | Rationale |
-|--------|--------|-----------|
-| Startup time | < 100ms | Fast enough to feel instant |
-| UI render | 60 FPS | Smooth animations |
-| LLM response (first token) | < 2s | Maintains flow |
-| File operations | < 50ms | No perceived lag |
-| Git operations | < 200ms | Acceptable for local ops |
-
-### Optimization Strategies
-
-1. **Lazy Loading**
-   - Load specs on-demand, not at startup
-   - Parse markdown only when needed
-   - Cache parsed results
-
-2. **Async Operations**
-   - LLM calls in background
-   - Git operations non-blocking
-   - Progress feedback for long operations
-
-3. **Response Streaming**
-   - Stream LLM tokens to UI as received
-   - Better perceived performance
-   - User can read while waiting
-
-4. **Caching**
-   - Cache LLM responses (with TTL)
-   - Cache parsed specs
-   - Cache GitHub API responses
-
-5. **Resource Limits**
-   - Limit concurrent LLM requests (1)
-   - Limit file size for analysis (10MB)
-   - Limit number of files in review (100)
-
-### Scalability Considerations
-
-**Single User / Small Team:**
-- Current architecture is sufficient
-- Local git + optional GitHub sync
-- No server infrastructure needed
-
-**Future: Larger Teams**
-- Add centralized server for collaboration
-- Real-time spec updates via WebSocket
-- Shared LLM backend to reduce costs
-- Role-based access control
+**Template System:**
+- Jinja2-style templates
+- User templates in `~/.factory/templates/`
+- Project templates in `.factory/templates/`
 
 ---
 
-## Appendix
+## 12. Monitoring & Observability
 
-### Technology Stack
+### 12.1 Metrics (Opt-In)
 
-**Core:**
-- Language: Go 1.21+
-- UI: Charm.sh (Bubble Tea, Lipgloss, Bubbles)
-- Git: go-git
-- Config: gopkg.in/yaml.v3
+**Collected Metrics:**
+- Command usage frequency
+- Mode usage distribution
+- LLM provider usage
+- Error rates by category
+- Performance metrics (latency, throughput)
 
-**LLM Clients:**
-- Ollama: Direct HTTP client
-- OpenAI: github.com/sashabaranov/go-openai
-- Anthropic: Custom client
-- Google: google.golang.org/genai
+**Storage:**
+- Local: `~/.factory/metrics.log`
+- Remote: (opt-in) Anonymous telemetry
 
-**GitHub:**
-- github.com/google/go-github/v57
-- golang.org/x/oauth2
+### 12.2 Health Checks
 
-**Secrets:**
-- github.com/zalando/go-keyring
-
-**CLI:**
-- github.com/spf13/cobra
-- github.com/spf13/viper
-
-### Future Enhancements
-
-1. **Plugin System**
-   - Executable hooks for custom workflows
-   - Language-specific analyzers
-   - Custom LLM providers
-
-2. **Team Features**
-   - Multi-user collaboration
-   - Real-time co-editing of specs
-   - Approval workflows
-
-3. **CI/CD Integration**
-   - GitHub Actions for automated reviews
-   - Spec validation on PR
-   - Automatic report generation
-
-4. **Advanced AI**
-   - Function calling for tool use
-   - Multi-turn conversations
-   - Context learning from project history
-
-5. **IDE Integration**
-   - VSCode extension
-   - JetBrains plugin
-   - Language server protocol
+**`factory doctor` Command:**
+- Check GitHub connectivity
+- Check LLM availability
+- Verify configuration
+- Test file permissions
+- Diagnose common issues
 
 ---
 
-## Revision History
+## 13. Future Enhancements
 
-| Version | Date | Changes | Author |
-|---------|------|---------|--------|
-| 1.0.0 | 2026-01-07 | Initial architecture | Code-Factory Team |
+### 13.1 Phase 2 (Q2 2026)
 
+- Web UI (localhost:3333)
+- Plugin system
+- Auto-update mechanism
+- Cloud sync (optional)
+
+### 13.2 Phase 3 (Q3 2026)
+
+- CI/CD integration (GitHub Actions, GitLab CI)
+- Slack/Discord notifications
+- Multi-repo support
+- Spec marketplace
+
+### 13.3 Phase 4 (Q4 2026)
+
+- VS Code extension
+- JetBrains plugin
+- Real-time collaboration
+- Enterprise features (SSO, audit logs)
+
+---
+
+**End of Specification**

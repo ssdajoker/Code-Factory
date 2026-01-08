@@ -7,1813 +7,1209 @@
 
 ---
 
-## Table of Contents
+## Executive Summary
 
-1. [Overview](#overview)
-2. [One-Click Onboarding Flow](#one-click-onboarding-flow)
-3. [GitHub OAuth & App Installation](#github-oauth--app-installation)
-4. [LLM Configuration](#llm-configuration)
-5. [Secret Management](#secret-management)
-6. [User Experience & Feedback](#user-experience--feedback)
-7. [Fallback Scenarios](#fallback-scenarios)
-8. [Technical Implementation](#technical-implementation)
-9. [Testing Requirements](#testing-requirements)
+This specification defines the complete onboarding and initialization flow for the Spec-Driven Software Factory system. The goal is to achieve **zero-friction setup** where a developer can go from discovery to productive use in under 2 minutes with a single command.
 
 ---
 
-## Overview
+## 1. One-Click Installation Flow
 
-The Factory Bootstrap process is the first-run experience for Code-Factory. It must be:
-- **Effortless**: Single command `factory init` should handle everything
-- **Beautiful**: Charm.sh TUI with clear progress indicators
-- **Intelligent**: Auto-detect configurations and minimize user input
-- **Resilient**: Graceful fallbacks for offline/no-GitHub scenarios
-- **Secure**: Proper secret handling with user consent
-
-### Design Principles
-
-1. **Zero to Hero in 60 Seconds**: From install to first spec generation
-2. **Progressive Disclosure**: Show complexity only when needed
-3. **Safety First**: All destructive actions require explicit confirmation
-4. **Teach as You Go**: Provide context and help inline
-5. **Fail Gracefully**: Never leave user in broken state
-
----
-
-## One-Click Onboarding Flow
-
-### Entry Point: `factory init`
+### 1.1 Installation Command
 
 ```bash
-$ factory init
+curl -sSL https://raw.githubusercontent.com/ssdajoker/Code-Factory/main/scripts/install.sh | sh
 ```
 
-### Flow Diagram
+### 1.2 Installation Script Behavior
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Welcome Screen                                           │
-│    - ASCII art logo                                         │
-│    - Version info                                           │
-│    - What will happen next                                  │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 2. Environment Detection                                    │
-│    - Check if ~/.config/factory/ exists                     │
-│    - Detect internet connectivity                           │
-│    - Check for existing config.yaml                         │
-│    - Detect if running in GitHub Codespaces/Gitpod         │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-              ┌─────────────┴─────────────┐
-              │                           │
-        ┌─────▼─────┐            ┌────────▼────────┐
-        │ First Run │            │ Existing Config │
-        └─────┬─────┘            └────────┬────────┘
-              │                           │
-              │                    ┌──────▼──────┐
-              │                    │ Show Summary│
-              │                    │ Ask Reconfig│
-              │                    └──────┬──────┘
-              │                           │
-              └───────────┬───────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 3. LLM Configuration                                        │
-│    - Auto-detect Ollama (port 11434)                        │
-│    - If found: Test connection, show model list             │
-│    - If not: Offer BYOK options (OpenAI, Anthropic, etc.)  │
-│    - Store choice in config                                 │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 4. GitHub Integration (Optional)                            │
-│    - Ask: "Connect to GitHub for seamless workflow?"        │
-│    - Yes → OAuth flow (see section below)                   │
-│    - No → Continue with local-only mode                     │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 5. Project Initialization                                   │
-│    - Ask for project name (default: current directory)      │
-│    - Create /contracts and /reports directories             │
-│    - Generate initial README.md in /contracts               │
-│    - Create .gitignore with sensible defaults               │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ 6. Success Screen                                           │
-│    - Show configured components                             │
-│    - Next steps guide                                       │
-│    - Quick start commands                                   │
-└─────────────────────────────────────────────────────────────┘
+The `install.sh` script performs the following operations:
+
+1. **Platform Detection**
+   - Detect OS: Linux, macOS, Windows (WSL/Git Bash)
+   - Detect architecture: amd64, arm64
+   - Set appropriate binary name: `factory-{os}-{arch}`
+
+2. **Binary Download**
+   - Fetch latest release from GitHub Releases API
+   - Download appropriate binary for platform
+   - Verify checksum (SHA256)
+   - Install to `/usr/local/bin/factory` (or `~/.local/bin/factory` if no sudo)
+   - Make executable: `chmod +x`
+
+3. **Verification**
+   - Run `factory --version` to confirm installation
+   - Display success banner with next steps
+
+4. **Fallback Behavior**
+   - If GitHub is unreachable: display manual installation instructions
+   - If no binary for platform: offer Docker alternative
+   - If checksum fails: abort with security warning
+
+### 1.3 Alternative Installation Methods
+
+**Homebrew (macOS/Linux):**
+```bash
+brew tap ssdajoker/factory
+brew install factory
 ```
 
-### Detailed Step Specifications
-
-#### Step 1: Welcome Screen
-
-**UI Layout:**
-```
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║     _____ ___  ____  _____      _____  _  ___ _____ ___  ______   __
-║    / ____|/ _ \|  _ \|  ____|    |  __ \  /\  / ____|_   _/ __ \|  _ \ \ / /
-║   | |    | | | | | | | |__  _____| |__ | /  \| |      | || |  | | |__) \ V / 
-║   | |    | | | | | | |  __||_____|  __|| / /\ \ |      | || |  | |  _  / | |  
-║   | |____| |_| | |_| | |____     | |   | / ____ \ |____| || |__| | | \ \ | |  
-║    \_____|\___/|____/|______|    |_|   |_/    \_\_____|_____\____/|_|  \_\|_|  
-║                                                              ║
-║                    Spec-Driven Software Factory              ║
-║                         Version 1.0.0                        ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-
-Welcome to Code-Factory! 👋
-
-This setup wizard will configure your development factory in about a minute.
-
-What we'll do:
-  • Configure your AI assistant (Ollama or bring-your-own-key)
-  • Optionally connect to GitHub for seamless collaboration
-  • Set up your project structure
-  • Create your first contract template
-
-Press Enter to continue, or Ctrl+C to exit...
+**Winget (Windows):**
+```bash
+winget install ssdajoker.factory
 ```
 
-**Implementation Notes:**
-- Use `lipgloss` for styling
-- Animate the welcome text (fade-in effect)
-- Show version from build metadata
-- Keyboard: Enter = Continue, Ctrl+C = Exit, ? = Help
-
-#### Step 2: Environment Detection
-
-**Display:**
-```
-Checking your environment...
-
-  ✓ Internet connectivity: Online
-  ✓ Configuration directory: Creating ~/.config/factory/
-  ✓ Runtime environment: Local machine
-  ○ Existing configuration: None found
-
-Detected environment: Local Development
+**Docker:**
+```bash
+docker pull ghcr.io/ssdajoker/factory:latest
+docker run -it -v $(pwd):/workspace ghcr.io/ssdajoker/factory init
 ```
 
-**Detection Logic:**
-```go
-type EnvironmentInfo struct {
-    IsOnline          bool
-    HasExistingConfig bool
-    ConfigPath        string
-    IsCodespaces      bool
-    IsGitpod          bool
-    IsCI              bool
-}
-
-func DetectEnvironment() (*EnvironmentInfo, error) {
-    env := &EnvironmentInfo{}
-    
-    // Check internet
-    env.IsOnline = checkInternet("https://api.github.com/zen")
-    
-    // Check for existing config
-    configPath := filepath.Join(os.UserHomeDir(), ".config", "factory", "config.yaml")
-    env.ConfigPath = configPath
-    env.HasExistingConfig = fileExists(configPath)
-    
-    // Detect cloud environments
-    env.IsCodespaces = os.Getenv("CODESPACES") == "true"
-    env.IsGitpod = os.Getenv("GITPOD_WORKSPACE_ID") != ""
-    env.IsCI = os.Getenv("CI") == "true"
-    
-    return env, nil
-}
+**Nix:**
+```bash
+nix-env -iA nixpkgs.factory
 ```
 
-**Behavior:**
-- If `HasExistingConfig == true`: Show summary screen and ask "Reconfigure? [y/N]"
-- If offline: Skip GitHub integration, proceed with local-only
-- If in Codespaces/Gitpod: Show warning about ephemeral storage
+---
 
-#### Step 3: LLM Configuration
+## 2. First-Run Initialization: `factory init`
 
-**3.1 Ollama Auto-Detection**
+### 2.1 Command Invocation
 
-**Display:**
-```
-Configuring AI Assistant...
-
-Checking for local Ollama installation...
-  ✓ Ollama detected at http://localhost:11434
-  ✓ Connection successful
-
-Available models:
-  • llama3.2:latest (recommended)
-  • codellama:latest
-  • mistral:latest
-
-Select your preferred model:
-> llama3.2:latest
-  codellama:latest
-  mistral:latest
-  [Other model...]
+```bash
+factory init
 ```
 
-**Detection Code:**
-```go
-func DetectOllama() (*OllamaInfo, error) {
-    // Try common ports
-    ports := []int{11434, 11435}
-    
-    for _, port := range ports {
-        url := fmt.Sprintf("http://localhost:%d/api/tags", port)
-        resp, err := http.Get(url)
-        if err != nil {
-            continue
-        }
-        defer resp.Body.Close()
-        
-        if resp.StatusCode == 200 {
-            var result struct {
-                Models []struct {
-                    Name string `json:"name"`
-                    Size int64  `json:"size"`
-                } `json:"models"`
-            }
-            json.NewDecoder(resp.Body).Decode(&result)
-            
-            return &OllamaInfo{
-                Available: true,
-                Endpoint:  fmt.Sprintf("http://localhost:%d", port),
-                Models:    result.Models,
-            }, nil
-        }
-    }
-    
-    return &OllamaInfo{Available: false}, nil
-}
+### 2.2 Initialization Flow
+
+#### Phase 1: Welcome & Context Detection (0-5 seconds)
+
+1. **Display Welcome Banner**
+   ```
+   ╔══════════════════════════════════════════════════════════╗
+   ║                                                          ║
+   ║        🏭  SPEC-DRIVEN SOFTWARE FACTORY  🏭              ║
+   ║                                                          ║
+   ║        Turning specifications into reality               ║
+   ║                                                          ║
+   ╚══════════════════════════════════════════════════════════╝
+   
+   Let's get you set up in under 2 minutes...
+   ```
+
+2. **Detect Current Context**
+   - Check if inside a git repository: `git rev-parse --git-dir`
+   - Check if `.factory/` directory exists
+   - Check if `~/.factory/config.toml` exists
+   - Determine if this is first-time setup or project-specific setup
+
+3. **Prompt for Setup Type**
+   ```
+   What would you like to do?
+   
+   [1] 🚀 Quick Start (GitHub integration + LLM auto-detect)
+   [2] 🔧 Manual Setup (configure everything yourself)
+   [3] 👥 Join Team (clone existing team configuration)
+   [4] 🆘 Help (learn more about Factory)
+   
+   Choice [1-4]:
+   ```
+
+#### Phase 2: GitHub Integration Setup (5-30 seconds)
+
+**For Option 1 (Quick Start):**
+
+1. **GitHub OAuth Flow Initiation**
+   ```
+   ┌─────────────────────────────────────────────────────────┐
+   │ 🔐 GitHub Integration                                   │
+   ├─────────────────────────────────────────────────────────┤
+   │                                                         │
+   │ Factory needs GitHub access to:                         │
+   │  ✓ Read repository metadata                             │
+   │  ✓ Create and manage issues                             │
+   │  ✓ Read and write pull requests                         │
+   │  ✓ Access repository contents                           │
+   │                                                         │
+   │ Opening browser for GitHub authorization...             │
+   │                                                         │
+   │ 🌐 https://github.com/login/oauth/authorize?...        │
+   │                                                         │
+   │ [Press Enter to open browser, or Ctrl+C to skip]       │
+   └─────────────────────────────────────────────────────────┘
+   ```
+
+2. **OAuth Device Flow (Fallback for Headless)**
+   ```
+   ┌─────────────────────────────────────────────────────────┐
+   │ 🔐 GitHub Device Authorization                          │
+   ├─────────────────────────────────────────────────────────┤
+   │                                                         │
+   │ Visit: https://github.com/login/device                 │
+   │                                                         │
+   │ Enter code: ABCD-1234                                   │
+   │                                                         │
+   │ Waiting for authorization... ⏳                         │
+   │                                                         │
+   └─────────────────────────────────────────────────────────┘
+   ```
+
+3. **Local HTTP Callback Server**
+   - Start temporary HTTP server on `http://localhost:8765/callback`
+   - Listen for OAuth callback with authorization code
+   - Exchange code for access token
+   - Shutdown server after successful exchange
+
+4. **Token Storage**
+   - Create `~/.factory/` directory with `0700` permissions
+   - Store token in `~/.factory/github_token` with `0600` permissions
+   - Encrypt token using system keyring if available (macOS Keychain, Windows Credential Manager, Linux Secret Service)
+
+#### Phase 3: GitHub App Installation (30-60 seconds)
+
+1. **Check for Existing Installation**
+   - Query GitHub API: `GET /user/installations`
+   - Look for "Code-Factory" app installation
+   - If found, skip to repository selection
+
+2. **Prompt for App Installation**
+   ```
+   ┌─────────────────────────────────────────────────────────┐
+   │ 📦 GitHub App Installation Required                     │
+   ├─────────────────────────────────────────────────────────┤
+   │                                                         │
+   │ Factory uses a GitHub App for enhanced integration.     │
+   │                                                         │
+   │ The app needs these permissions:                        │
+   │  • Contents: Read & Write                               │
+   │  • Issues: Read & Write                                 │
+   │  • Pull Requests: Read & Write                          │
+   │  • Metadata: Read-only                                  │
+   │  • Webhooks: Read & Write (optional)                    │
+   │                                                         │
+   │ Opening installation page...                            │
+   │                                                         │
+   │ 🌐 https://github.com/apps/code-factory/installations/new │
+   │                                                         │
+   │ [Press Enter when installation is complete]            │
+   └─────────────────────────────────────────────────────────┘
+   ```
+
+3. **Repository Selection**
+   - After app installation, fetch accessible repositories
+   - If in git repo, auto-detect and confirm
+   - Otherwise, present interactive list:
+   ```
+   Select repository to initialize Factory:
+   
+   ↓ ssdajoker/Code-Factory (current directory)
+     ssdajoker/my-app
+     ssdajoker/another-project
+     myorg/team-project
+   
+   [↑/↓ to navigate, Enter to select, / to search]
+   ```
+
+4. **Installation Verification**
+   - Test API access: `GET /repos/{owner}/{repo}`
+   - Verify write permissions
+   - Display confirmation:
+   ```
+   ✅ GitHub integration complete!
+   
+   Repository: ssdajoker/Code-Factory
+   Access: Read & Write
+   App: Installed
+   ```
+
+#### Phase 4: LLM Configuration (60-90 seconds)
+
+1. **Auto-Detection**
+   ```
+   ┌─────────────────────────────────────────────────────────┐
+   │ 🤖 LLM Configuration                                    │
+   ├─────────────────────────────────────────────────────────┤
+   │                                                         │
+   │ Detecting available LLM providers...                    │
+   │                                                         │
+   │ ⏳ Checking Ollama (localhost:11434)...                │
+   └─────────────────────────────────────────────────────────┘
+   ```
+
+2. **Ollama Detection**
+   - Attempt connection to `http://localhost:11434/api/tags`
+   - If successful, list available models
+   - Recommend models: `codellama`, `mistral`, `llama2`
+   - If no models, offer to pull one:
+   ```
+   ✅ Ollama detected!
+   
+   Available models:
+     • codellama:7b (recommended for code)
+     • mistral:7b (fast and capable)
+   
+   Select default model:
+   ↓ codellama:7b
+     mistral:7b
+     [Download another model...]
+   ```
+
+3. **BYOK (Bring Your Own Key) Flow**
+   - If Ollama not detected, prompt for API keys:
+   ```
+   ┌─────────────────────────────────────────────────────────┐
+   │ 🔑 LLM API Configuration                                │
+   ├─────────────────────────────────────────────────────────┤
+   │                                                         │
+   │ Choose your LLM provider:                               │
+   │                                                         │
+   │ [1] OpenAI (GPT-4, GPT-3.5)                             │
+   │ [2] Anthropic (Claude 3)                                │
+   │ [3] Google (Gemini)                                     │
+   │ [4] Azure OpenAI                                        │
+   │ [5] Skip (configure later)                              │
+   │                                                         │
+   │ Choice [1-5]:                                           │
+   └─────────────────────────────────────────────────────────┘
+   ```
+
+4. **API Key Input**
+   ```
+   Enter your OpenAI API key:
+   (Input will be hidden)
+   
+   sk-************************************************
+   
+   Testing connection... ✅
+   
+   Select default model:
+   ↓ gpt-4-turbo-preview (recommended)
+     gpt-4
+     gpt-3.5-turbo
+   ```
+
+5. **Configuration Storage**
+   - Store in `~/.factory/config.toml`:
+   ```toml
+   [llm]
+   provider = "ollama"  # or "openai", "anthropic", etc.
+   model = "codellama:7b"
+   endpoint = "http://localhost:11434"
+   
+   # For BYOK providers
+   # api_key is stored in system keyring, not in this file
+   ```
+
+#### Phase 5: Project Initialization (90-120 seconds)
+
+1. **Create Project Structure**
+   ```
+   ┌─────────────────────────────────────────────────────────┐
+   │ 📁 Initializing Project Structure                      │
+   ├─────────────────────────────────────────────────────────┤
+   │                                                         │
+   │ Creating directories...                                 │
+   │  ✓ /contracts/                                          │
+   │  ✓ /reports/                                            │
+   │  ✓ /.factory/                                           │
+   │                                                         │
+   │ Creating initial files...                               │
+   │  ✓ contracts/README.md                                  │
+   │  ✓ .factory/config.toml                                 │
+   │  ✓ .gitignore (updated)                                 │
+   │                                                         │
+   └─────────────────────────────────────────────────────────┘
+   ```
+
+2. **Directory Structure Created**
+   ```
+   project-root/
+   ├── contracts/           # Specification documents
+   │   ├── README.md
+   │   └── .gitkeep
+   ├── reports/             # Generated reports
+   │   ├── README.md
+   │   └── .gitkeep
+   └── .factory/            # Project-specific config
+       └── config.toml
+   ```
+
+3. **Update .gitignore**
+   - Add Factory-specific ignores:
+   ```
+   # Factory
+   .factory/cache/
+   .factory/temp/
+   reports/*.tmp
+   ```
+
+4. **Create Initial Contract**
+   - Generate `contracts/README.md` with template
+   - Optionally create first spec from project README
+
+#### Phase 6: Confirmation & Next Steps (120 seconds)
+
 ```
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║              ✅  SETUP COMPLETE!  ✅                     ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
 
-**3.2 BYOK (Bring Your Own Key) Flow**
+Configuration Summary:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-If Ollama not detected:
-
-```
-No local Ollama installation found.
-
-You can:
-  1. Install Ollama now (recommended for privacy)
-     → Visit https://ollama.ai/download
-  2. Use an external LLM provider
-
-Select provider:
-> OpenAI (GPT-4, GPT-3.5)
-  Anthropic (Claude 3)
-  Google (Gemini)
-  Azure OpenAI
-  Custom endpoint
-
-[Enter API Key]: ••••••••••••••••••••••••••••••••
-
-Testing connection...
-  ✓ API key valid
-  ✓ Model access confirmed: gpt-4o
-```
-
-**Configuration Storage:**
-```yaml
-# ~/.config/factory/config.yaml
-llm:
-  provider: "ollama"  # or "openai", "anthropic", "google", "azure", "custom"
-  endpoint: "http://localhost:11434"
-  model: "llama3.2:latest"
-  # For BYOK:
-  # api_key_ref: "factory.llm.openai.key"  # Reference to secret in keyring
-```
-
-**Secret Handling:**
-- Never store API keys in plain text config
-- Use OS keyring (keychain on macOS, Secret Service on Linux, Credential Manager on Windows)
-- Library: `github.com/zalando/go-keyring`
-
-```go
-import "github.com/zalando/go-keyring"
-
-func StoreAPIKey(provider, key string) error {
-    service := "factory.llm." + provider
-    return keyring.Set(service, "api_key", key)
-}
-
-func GetAPIKey(provider string) (string, error) {
-    service := "factory.llm." + provider
-    return keyring.Get(service, "api_key")
-}
-```
-
-#### Step 4: GitHub Integration
-
-**4.1 Prompt Screen**
-
-```
-GitHub Integration (Optional)
-
-Connecting to GitHub enables:
-  • Automatic PR creation from CHANGE_ORDER mode
-  • Direct spec commits to your repositories
-  • Seamless team collaboration
-  • Issue tracking integration
-
-This requires:
-  • GitHub OAuth authentication
-  • Installing the Code-Factory GitHub App
-  • Granting repository access
-
-Would you like to connect GitHub? [y/N]: _
-```
-
-**4.2 OAuth Flow** (see detailed section below)
-
-#### Step 5: Project Initialization
-
-```
-Setting up your project...
-
-Project name (default: code-factory): my-awesome-app
-Project path: /home/user/projects/my-awesome-app
-
-Creating structure:
-  ✓ /contracts/ - Your specifications live here
-  ✓ /reports/ - Generated reports and analysis
-  ✓ README.md - Project documentation
-  ✓ .gitignore - Sensible defaults
-
-Initializing git repository...
-  ✓ Git initialized
-  ✓ Initial commit created
-
-Project ready! 🎉
-```
-
-**Generated Files:**
-
-`/contracts/README.md`:
-```markdown
-# Project Contracts
-
-This directory contains your project specifications in plain markdown.
-
-## Structure
-
-- **specs/** - Feature specifications
-- **architecture/** - System architecture documents
-- **decisions/** - Architecture Decision Records (ADRs)
-
-## Getting Started
-
-1. Create a new spec: `factory intake`
-2. Review existing code: `factory review`
-3. Request changes: `factory change-order`
-
-## Spec Format
-
-See `template.md` for the standard format.
-```
-
-`/.gitignore`:
-```
-# Factory outputs
-/reports/
-*.factory.tmp
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Secrets
-.env
-*.key
-*.pem
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-```
-
-#### Step 6: Success Screen
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║                    Setup Complete! 🎉                        ║
-╚══════════════════════════════════════════════════════════════╝
-
-Your Code-Factory is ready to use!
-
-Configuration:
-  • AI Provider: Ollama (llama3.2:latest)
-  • GitHub: Connected (@username)
-  • Project: /home/user/projects/my-awesome-app
+📦 Repository:     ssdajoker/Code-Factory
+🔐 GitHub:         Connected (OAuth)
+🤖 LLM Provider:   Ollama (codellama:7b)
+📁 Project:        Initialized
 
 Next Steps:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  1. Create your first specification:
-     $ factory intake
+1. Start the TUI:
+   $ factory
 
-  2. Review existing code:
-     $ factory review src/
+2. Create your first specification:
+   $ factory intake
 
-  3. Request a code change:
-     $ factory change-order
+3. Review existing code against specs:
+   $ factory review
 
-  4. Get help anytime:
-     $ factory help
-
-Tips:
-  • All specs are stored in /contracts/ as markdown
-  • Reports are generated in /reports/
-  • Use `factory config` to reconfigure anytime
+4. Learn more:
+   $ factory help
 
 Happy building! 🏭
-
-Press any key to exit...
 ```
 
 ---
 
-## GitHub OAuth & App Installation
+## 3. GitHub OAuth & App Integration
 
-### Overview
+### 3.1 OAuth Application Setup
 
-GitHub integration uses **OAuth Device Flow** (ideal for CLI) and requires installing the **Code-Factory GitHub App** for repository access.
+**Application Details:**
+- **Name:** Code-Factory
+- **Homepage URL:** https://github.com/ssdajoker/Code-Factory
+- **Authorization callback URL:** http://localhost:8765/callback
+- **Device Flow:** Enabled (for headless environments)
 
-### Why GitHub App vs Personal Access Token?
+**OAuth Scopes Required:**
+- `repo` - Full control of private repositories
+- `read:user` - Read user profile data
+- `read:org` - Read organization membership (for team features)
 
-| Feature | GitHub App | PAT |
-|---------|------------|-----|
-| User consent | ✅ Per-repo | ❌ All-or-nothing |
-| Token rotation | ✅ Automatic | ❌ Manual |
-| Audit trail | ✅ Detailed | ⚠️ Limited |
-| Revocation | ✅ Per-installation | ❌ All access |
-| Rate limits | ✅ Higher | ⚠️ Lower |
+### 3.2 GitHub App Setup
 
-### OAuth Device Flow
+**App Details:**
+- **Name:** Code-Factory
+- **Description:** Spec-Driven Software Factory - Turn specifications into reality
+- **Homepage URL:** https://github.com/ssdajoker/Code-Factory
+- **Callback URL:** http://localhost:8765/callback
+- **Webhook URL:** (optional) https://factory.example.com/webhooks
+- **Webhook Secret:** (generated per installation)
 
-**Why Device Flow?**
-- No need for localhost callback server
-- Works in SSH sessions, containers, remote machines
-- User-friendly: shows code + URL
+**Required Permissions:**
 
-**Flow Diagram:**
+| Permission | Access | Reason |
+|------------|--------|--------|
+| Contents | Read & Write | Read code, create/update spec files |
+| Issues | Read & Write | Track spec changes, create change orders |
+| Pull Requests | Read & Write | Review PRs against specs, suggest changes |
+| Metadata | Read-only | Access repository metadata |
+| Webhooks | Read & Write | (Optional) Real-time notifications |
 
-```
-┌──────────┐                                      ┌──────────┐
-│ Factory  │                                      │  GitHub  │
-│   CLI    │                                      │   API    │
-└────┬─────┘                                      └────┬─────┘
-     │                                                 │
-     │  POST /login/device/code                       │
-     │  (client_id, scope)                            │
-     ├────────────────────────────────────────────────>│
-     │                                                 │
-     │  { device_code, user_code, verification_uri }  │
-     │<────────────────────────────────────────────────┤
-     │                                                 │
-     │  [Display to user]                             │
-     │  "Visit https://github.com/login/device"       │
-     │  "Enter code: ABCD-1234"                       │
-     │                                                 │
-     │  [User opens browser and enters code]          │
-     │                        │                        │
-     │                        └───────────────────────>│
-     │                                                 │ [User authorizes]
-     │                                                 │
-     │  POST /login/oauth/access_token (poll)         │
-     │  (device_code)                                  │
-     ├────────────────────────────────────────────────>│
-     │                                                 │
-     │  { access_token }                              │
-     │<────────────────────────────────────────────────┤
-     │                                                 │
-     │  GET /user (verify)                            │
-     ├────────────────────────────────────────────────>│
-     │                                                 │
-     │  { login, name, ... }                          │
-     │<────────────────────────────────────────────────┤
-     │                                                 │
-```
+**Webhook Events (Optional):**
+- `push` - Trigger automatic spec review
+- `pull_request` - Review PR against specs
+- `issues` - Track spec-related issues
 
-### Implementation
+### 3.3 API Calls for Automated Setup
 
-**Step 1: Initiate Device Flow**
+#### 3.3.1 OAuth Token Exchange
 
-```go
-type DeviceCodeResponse struct {
-    DeviceCode      string `json:"device_code"`
-    UserCode        string `json:"user_code"`
-    VerificationURI string `json:"verification_uri"`
-    ExpiresIn       int    `json:"expires_in"`
-    Interval        int    `json:"interval"`
-}
+```http
+POST https://github.com/login/oauth/access_token
+Content-Type: application/json
 
-func InitiateDeviceFlow(clientID string) (*DeviceCodeResponse, error) {
-    data := url.Values{}
-    data.Set("client_id", clientID)
-    data.Set("scope", "repo read:user")
-    
-    resp, err := http.PostForm(
-        "https://github.com/login/device/code",
-        data,
-    )
-    if err != nil {
-        return nil, err
-    }
-    defer resp.Body.Close()
-    
-    var result DeviceCodeResponse
-    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-        return nil, err
-    }
-    
-    return &result, nil
+{
+  "client_id": "Iv1.xxxxxxxxxxxxx",
+  "client_secret": "xxxxxxxxxxxxxxxxxxxxx",
+  "code": "authorization_code_from_callback",
+  "redirect_uri": "http://localhost:8765/callback"
 }
 ```
 
-**Step 2: Display to User**
-
-```
-Connecting to GitHub...
-
-1. Visit: https://github.com/login/device
-2. Enter this code: ABCD-1234
-
-┌────────────────────────────────┐
-│                                │
-│        ABCD-1234              │
-│                                │
-│   (Code copied to clipboard)   │
-│                                │
-└────────────────────────────────┘
-
-Waiting for authorization... [Press Ctrl+C to cancel]
-
-[ Spinner animation ]
-```
-
-**UI Enhancement:**
-- Copy code to clipboard automatically
-- Optionally open browser (ask user first)
-- Show countdown timer (usually 15 minutes to complete)
-
-**Step 3: Poll for Token**
-
-```go
-func PollForAccessToken(clientID, deviceCode string, interval int) (string, error) {
-    ticker := time.NewTicker(time.Duration(interval) * time.Second)
-    defer ticker.Stop()
-    
-    timeout := time.After(15 * time.Minute)
-    
-    for {
-        select {
-        case <-timeout:
-            return "", errors.New("authorization timeout")
-        case <-ticker.C:
-            token, err := checkAuthorization(clientID, deviceCode)
-            if err == nil {
-                return token, nil
-            }
-            // Continue polling on "authorization_pending"
-            // Return error on other errors
-        }
-    }
-}
-
-func checkAuthorization(clientID, deviceCode string) (string, error) {
-    data := url.Values{}
-    data.Set("client_id", clientID)
-    data.Set("device_code", deviceCode)
-    data.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-    
-    resp, err := http.PostForm(
-        "https://github.com/login/oauth/access_token",
-        data,
-    )
-    if err != nil {
-        return "", err
-    }
-    defer resp.Body.Close()
-    
-    var result struct {
-        AccessToken string `json:"access_token"`
-        Error       string `json:"error"`
-    }
-    json.NewDecoder(resp.Body).Decode(&result)
-    
-    if result.Error == "authorization_pending" {
-        return "", errors.New("pending")
-    } else if result.Error != "" {
-        return "", errors.New(result.Error)
-    }
-    
-    return result.AccessToken, nil
+**Response:**
+```json
+{
+  "access_token": "gho_xxxxxxxxxxxxxxxxxxxx",
+  "token_type": "bearer",
+  "scope": "repo,read:user,read:org"
 }
 ```
 
-**Step 4: Verify Token & Get User Info**
+#### 3.3.2 Verify Token & Get User Info
 
-```go
-func GetAuthenticatedUser(token string) (*GitHubUser, error) {
-    req, _ := http.NewRequest("GET", "https://api.github.com/user", nil)
-    req.Header.Set("Authorization", "Bearer "+token)
-    req.Header.Set("Accept", "application/vnd.github.v3+json")
-    
-    client := &http.Client{Timeout: 10 * time.Second}
-    resp, err := client.Do(req)
-    if err != nil {
-        return nil, err
-    }
-    defer resp.Body.Close()
-    
-    if resp.StatusCode != 200 {
-        return nil, fmt.Errorf("authentication failed: %d", resp.StatusCode)
-    }
-    
-    var user GitHubUser
-    if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-        return nil, err
-    }
-    
-    return &user, nil
+```http
+GET https://api.github.com/user
+Authorization: Bearer gho_xxxxxxxxxxxxxxxxxxxx
+```
+
+**Response:**
+```json
+{
+  "login": "ssdajoker",
+  "id": 13389148,
+  "name": "User Name",
+  "email": "user@example.com"
 }
 ```
 
-**Success Display:**
+#### 3.3.3 List User Installations
 
-```
-✓ Authorization successful!
-
-Authenticated as: @username (John Doe)
-Email: john@example.com
-
-Permissions granted:
-  • Read user profile
-  • Access public and private repositories
+```http
+GET https://api.github.com/user/installations
+Authorization: Bearer gho_xxxxxxxxxxxxxxxxxxxx
 ```
 
-### GitHub App Installation
-
-**When to Install:**
-- After successful OAuth (if user wants repo access)
-- Can be deferred to first use of GitHub features
-
-**Flow:**
-
+**Response:**
+```json
+{
+  "total_count": 1,
+  "installations": [
+    {
+      "id": 12345678,
+      "app_id": 123456,
+      "target_type": "User",
+      "account": {
+        "login": "ssdajoker"
+      }
+    }
+  ]
+}
 ```
-To enable repository operations, you need to install the Code-Factory GitHub App.
 
-This will allow Code-Factory to:
-  • Create branches and PRs
-  • Read repository contents
-  • Create commits
-  • Add comments and reviews
+#### 3.3.4 List Installation Repositories
 
-Installation URL:
+```http
+GET https://api.github.com/user/installations/12345678/repositories
+Authorization: Bearer gho_xxxxxxxxxxxxxxxxxxxx
+```
+
+**Response:**
+```json
+{
+  "total_count": 5,
+  "repositories": [
+    {
+      "id": 1125111279,
+      "name": "Code-Factory",
+      "full_name": "ssdajoker/Code-Factory",
+      "private": false
+    }
+  ]
+}
+```
+
+#### 3.3.5 Create Installation Access Token
+
+```http
+POST https://api.github.com/app/installations/12345678/access_tokens
+Authorization: Bearer JWT_TOKEN
+```
+
+**Response:**
+```json
+{
+  "token": "ghs_xxxxxxxxxxxxxxxxxxxx",
+  "expires_at": "2026-01-07T12:00:00Z",
+  "permissions": {
+    "contents": "write",
+    "issues": "write",
+    "pull_requests": "write"
+  }
+}
+```
+
+### 3.4 Device Flow (Headless Environments)
+
+For SSH sessions, Docker containers, or CI/CD environments:
+
+#### Step 1: Request Device Code
+
+```http
+POST https://github.com/login/device/code
+Content-Type: application/json
+
+{
+  "client_id": "Iv1.xxxxxxxxxxxxx",
+  "scope": "repo read:user read:org"
+}
+```
+
+**Response:**
+```json
+{
+  "device_code": "3584d83530557fdd1f46af8289938c8ef79f9dc5",
+  "user_code": "ABCD-1234",
+  "verification_uri": "https://github.com/login/device",
+  "expires_in": 900,
+  "interval": 5
+}
+```
+
+#### Step 2: Poll for Authorization
+
+```http
+POST https://github.com/login/oauth/access_token
+Content-Type: application/json
+
+{
+  "client_id": "Iv1.xxxxxxxxxxxxx",
+  "device_code": "3584d83530557fdd1f46af8289938c8ef79f9dc5",
+  "grant_type": "urn:ietf:params:oauth:grant-type:device_code"
+}
+```
+
+**Response (pending):**
+```json
+{
+  "error": "authorization_pending"
+}
+```
+
+**Response (success):**
+```json
+{
+  "access_token": "gho_xxxxxxxxxxxxxxxxxxxx",
+  "token_type": "bearer",
+  "scope": "repo,read:user,read:org"
+}
+```
+
+---
+
+## 4. Secret Storage Strategy
+
+### 4.1 Storage Locations
+
+**Global Configuration:**
+- Path: `~/.factory/config.toml`
+- Permissions: `0600` (read/write for owner only)
+- Contents: Non-sensitive configuration (LLM provider, model, preferences)
+
+**GitHub Token:**
+- Path: `~/.factory/github_token`
+- Permissions: `0600`
+- Contents: OAuth access token (encrypted if keyring available)
+
+**Project Configuration:**
+- Path: `{project}/.factory/config.toml`
+- Permissions: `0644` (readable by team)
+- Contents: Project-specific settings (no secrets)
+
+### 4.2 Encryption Strategy
+
+**Tier 1: System Keyring (Preferred)**
+- macOS: Keychain Access
+- Windows: Credential Manager
+- Linux: Secret Service API (GNOME Keyring, KWallet)
+
+**Tier 2: File Encryption (Fallback)**
+- Use AES-256-GCM encryption
+- Derive key from machine ID + user ID
+- Store encrypted token in `~/.factory/github_token.enc`
+
+**Tier 3: Plain File (Last Resort)**
+- Store token in `~/.factory/github_token`
+- Warn user about security implications
+- Recommend using environment variable instead
+
+### 4.3 Configuration File Format
+
+**~/.factory/config.toml:**
+```toml
+[user]
+name = "ssdajoker"
+email = "user@example.com"
+
+[github]
+# Token stored separately in keyring or github_token file
+token_storage = "keyring"  # or "file", "env"
+default_org = "ssdajoker"
+
+[llm]
+provider = "ollama"
+model = "codellama:7b"
+endpoint = "http://localhost:11434"
+temperature = 0.7
+max_tokens = 4096
+
+[llm.fallback]
+provider = "openai"
+model = "gpt-3.5-turbo"
+# API key stored in keyring
+
+[ui]
+theme = "auto"  # auto, light, dark
+editor = "vim"  # for editing specs
+browser = "default"  # for OAuth flow
+
+[modes]
+default = "intake"  # Default mode on startup
+
+[modes.review]
+auto_fix = false
+strict_mode = true
+
+[modes.change_order]
+auto_create_issue = true
+```
+
+**{project}/.factory/config.toml:**
+```toml
+[project]
+name = "Code-Factory"
+repository = "ssdajoker/Code-Factory"
+initialized_at = "2026-01-07T12:00:00Z"
+
+[contracts]
+directory = "contracts"
+format = "markdown"  # or "yaml", "json"
+
+[reports]
+directory = "reports"
+format = "markdown"
+auto_commit = false
+
+[integrations]
+github_app_installed = true
+installation_id = 12345678
+
+[team]
+# Team members can clone and use without re-auth
+shared_config = true
+```
+
+### 4.4 Environment Variable Override
+
+Users can override token storage with environment variables:
+
+```bash
+export FACTORY_GITHUB_TOKEN="gho_xxxxxxxxxxxxxxxxxxxx"
+export FACTORY_LLM_API_KEY="sk-xxxxxxxxxxxxxxxxxxxx"
+export FACTORY_LLM_PROVIDER="openai"
+export FACTORY_LLM_MODEL="gpt-4-turbo-preview"
+```
+
+---
+
+## 5. User Experience & Feedback
+
+### 5.1 Terminal Banners
+
+**Success Banner:**
+```
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║              ✅  OPERATION SUCCESSFUL  ✅                ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+**Error Banner:**
+```
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║              ❌  OPERATION FAILED  ❌                    ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+**Warning Banner:**
+```
+┌──────────────────────────────────────────────────────────┐
+│ ⚠️  WARNING                                              │
+├──────────────────────────────────────────────────────────┤
+│ This operation may have security implications.           │
+└──────────────────────────────────────────────────────────┘
+```
+
+### 5.2 Progress Indicators
+
+**Spinner (for quick operations):**
+```
+⠋ Connecting to GitHub...
+⠙ Connecting to GitHub...
+⠹ Connecting to GitHub...
+⠸ Connecting to GitHub...
+⠼ Connecting to GitHub...
+```
+
+**Progress Bar (for longer operations):**
+```
+Downloading binary...
+[████████████████████████████░░░░░░░░] 75% (15.2 MB / 20.0 MB)
+```
+
+**Step Indicator:**
+```
+[1/5] ✓ GitHub authentication
+[2/5] ⏳ Installing GitHub App...
+[3/5] ⏸️  LLM configuration
+[4/5] ⏸️  Project initialization
+[5/5] ⏸️  Verification
+```
+
+### 5.3 Error Messages
+
+**Clear and Actionable:**
+```
+❌ Error: GitHub authentication failed
+
+Reason: Invalid OAuth token
+
+What to do:
+1. Check your internet connection
+2. Try running: factory auth reset
+3. Re-run: factory init
+
+Need help? Visit: https://github.com/ssdajoker/Code-Factory/issues
+```
+
+**With Recovery Options:**
+```
+❌ Error: Ollama not detected
+
+Factory can work with:
+• Ollama (local, free, private)
+• OpenAI (cloud, paid, powerful)
+• Anthropic Claude (cloud, paid, powerful)
+
+What would you like to do?
+[1] Install Ollama (recommended)
+[2] Use OpenAI (enter API key)
+[3] Use Anthropic Claude (enter API key)
+[4] Skip for now (configure later)
+
+Choice [1-4]:
+```
+
+---
+
+## 6. Fallback Behavior
+
+### 6.1 Offline / No GitHub Scenarios
+
+**Detection:**
+- Attempt to connect to `https://api.github.com`
+- Timeout after 5 seconds
+- Display offline mode banner
+
+**Offline Mode:**
+```
+┌──────────────────────────────────────────────────────────┐
+│ 🔌 Offline Mode                                          │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│ GitHub integration is unavailable.                       │
+│                                                          │
+│ You can still use Factory in local mode:                │
+│  ✓ Create and edit specifications                        │
+│  ✓ Review local code against specs                       │
+│  ✓ Generate reports                                      │
+│                                                          │
+│ GitHub features will be available when online.           │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+
+Continue in offline mode? [Y/n]:
+```
+
+**Local-Only Features:**
+- Spec creation and editing
+- Code review against local specs
+- Report generation
+- LLM integration (if Ollama is available)
+
+**Disabled Features:**
+- GitHub issue creation
+- PR review
+- Remote spec synchronization
+- Team collaboration
+
+### 6.2 No LLM Available
+
+**Detection:**
+- Check for Ollama: `http://localhost:11434/api/tags`
+- Check for API keys in config
+- If both fail, enter manual mode
+
+**Manual Mode:**
+```
+┌──────────────────────────────────────────────────────────┐
+│ 🤖 No LLM Detected                                       │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│ Factory works best with an LLM, but you can still:      │
+│  ✓ Create specifications manually                        │
+│  ✓ Use templates for common patterns                     │
+│  ✓ Review code with rule-based checks                    │
+│                                                          │
+│ To enable AI features:                                   │
+│  • Install Ollama: https://ollama.ai                     │
+│  • Or configure API key: factory config llm              │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+
+Continue without LLM? [Y/n]:
+```
+
+**Degraded Features:**
+- Spec generation: Use templates instead of AI
+- Code review: Basic pattern matching instead of semantic analysis
+- Change detection: Diff-based instead of intent-based
+
+### 6.3 Insufficient Permissions
+
+**GitHub App Not Installed:**
+```
+❌ Error: GitHub App not installed
+
+Factory needs the GitHub App installed to access your repository.
+
+Install now:
 https://github.com/apps/code-factory/installations/new
 
-1. Open the URL above
-2. Select repositories to grant access
-3. Complete installation
-
-[Open in browser] [Skip for now]
-
-Waiting for installation confirmation...
+After installation, run: factory init --reconnect
 ```
 
-**Verification:**
-
-```go
-func CheckAppInstallation(token string) (bool, []string, error) {
-    req, _ := http.NewRequest(
-        "GET",
-        "https://api.github.com/user/installations",
-        nil,
-    )
-    req.Header.Set("Authorization", "Bearer "+token)
-    req.Header.Set("Accept", "application/vnd.github.v3+json")
-    
-    client := &http.Client{Timeout: 10 * time.Second}
-    resp, err := client.Do(req)
-    if err != nil {
-        return false, nil, err
-    }
-    defer resp.Body.Close()
-    
-    var result struct {
-        Installations []struct {
-            AppSlug string `json:"app_slug"`
-            Account struct {
-                Login string `json:"login"`
-            } `json:"account"`
-        } `json:"installations"`
-    }
-    json.NewDecoder(resp.Body).Decode(&result)
-    
-    for _, inst := range result.Installations {
-        if inst.AppSlug == "code-factory" {
-            // Get accessible repositories
-            repos, _ := getInstallationRepos(token, inst.Account.Login)
-            return true, repos, nil
-        }
-    }
-    
-    return false, nil, nil
-}
+**Missing Permissions:**
 ```
+⚠️  Warning: Limited GitHub access
 
-### Required Permissions and Scopes
+Factory has read-only access to your repository.
+Some features will be disabled:
 
-**OAuth Scopes:**
+Disabled:
+  ❌ Creating/updating specs in repo
+  ❌ Creating issues for change orders
+  ❌ Commenting on PRs
+
+Available:
+  ✓ Reading existing specs
+  ✓ Reviewing local code
+  ✓ Generating local reports
+
+To enable all features, grant write access:
+https://github.com/apps/code-factory/installations/12345678
 ```
-repo              # Full repository access
-read:user         # User profile info
-read:org          # Organization membership
-workflow          # GitHub Actions access (optional)
-```
-
-**GitHub App Permissions:**
-```yaml
-# app.yml (for GitHub App configuration)
-default_permissions:
-  contents: write        # Read/write repository contents
-  pull_requests: write   # Create and manage PRs
-  issues: write          # Create and manage issues
-  metadata: read         # Read repository metadata
-  
-events:
-  - pull_request
-  - push
-  - issue_comment
-```
-
-### Secret Storage
-
-**Configuration File:**
-```yaml
-# ~/.config/factory/config.yaml
-github:
-  enabled: true
-  username: "johndoe"
-  token_ref: "factory.github.oauth.token"  # Keyring reference
-  app_installed: true
-  installation_id: 12345678
-```
-
-**Keyring Storage:**
-```go
-// Store OAuth token
-keyring.Set("factory.github", "oauth.token", accessToken)
-
-// Store installation token (if using GitHub App API)
-keyring.Set("factory.github", "installation.token", installationToken)
-```
-
-**Security Considerations:**
-- Tokens are NEVER written to config file or logs
-- Use OS-native secure storage
-- Implement token refresh logic
-- Handle revocation gracefully
 
 ---
 
-## LLM Configuration
+## 7. Team Setup Flow
 
-### Detection Strategy
+### 7.1 First Team Member (Admin)
 
-**Priority Order:**
-1. **Ollama** (localhost:11434) - Check first
-2. **Environment variables** - OPENAI_API_KEY, ANTHROPIC_API_KEY, etc.
-3. **Existing config** - ~/.config/factory/config.yaml
-4. **Interactive prompt** - Ask user
+**Setup:**
+1. Run `factory init` (full setup as described above)
+2. Commit `.factory/config.toml` to repository
+3. Share repository with team
 
-### Ollama Integration
+**Committed Configuration:**
+```toml
+# .factory/config.toml (committed to repo)
+[project]
+name = "Code-Factory"
+repository = "ssdajoker/Code-Factory"
+team_mode = true
 
-**Detection:**
-```go
-func DetectOllama(ctx context.Context) (*OllamaConfig, error) {
-    endpoints := []string{
-        "http://localhost:11434",
-        "http://127.0.0.1:11434",
-        os.Getenv("OLLAMA_HOST"),
-    }
-    
-    for _, endpoint := range endpoints {
-        if endpoint == "" {
-            continue
-        }
-        
-        // Try to connect
-        url := endpoint + "/api/tags"
-        req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
-        
-        client := &http.Client{Timeout: 2 * time.Second}
-        resp, err := client.Do(req)
-        if err != nil {
-            continue
-        }
-        defer resp.Body.Close()
-        
-        if resp.StatusCode == 200 {
-            var result struct {
-                Models []OllamaModel `json:"models"`
-            }
-            json.NewDecoder(resp.Body).Decode(&result)
-            
-            return &OllamaConfig{
-                Endpoint: endpoint,
-                Available: true,
-                Models: result.Models,
-            }, nil
-        }
-    }
-    
-    return &OllamaConfig{Available: false}, nil
-}
+[contracts]
+directory = "contracts"
+format = "markdown"
 
-type OllamaModel struct {
-    Name       string    `json:"name"`
-    Size       int64     `json:"size"`
-    ModifiedAt time.Time `json:"modified_at"`
-    Details    struct {
-        Format string `json:"format"`
-        Family string `json:"family"`
-    } `json:"details"`
-}
+[reports]
+directory = "reports"
+format = "markdown"
+
+# Note: No secrets in this file!
+# Team members will authenticate individually
 ```
 
-**Model Selection UI:**
+### 7.2 Additional Team Members
+
+**Setup:**
+1. Clone repository: `git clone https://github.com/ssdajoker/Code-Factory.git`
+2. Run `factory init --team`
+
+**Team Init Flow:**
 ```
-Select Ollama Model:
+╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║        🏭  JOINING TEAM PROJECT  🏭                      ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝
 
-> ● llama3.2:latest          7.4 GB   [recommended]
-  ○ codellama:latest         7.4 GB   [for code]
-  ○ mistral:latest           4.1 GB
-  ○ llama2:latest           3.8 GB
-  ○ deepseek-coder:latest   6.7 GB
+Detected existing Factory configuration!
 
-  [↑↓] Navigate  [Enter] Select  [/] Search  [q] Quit
+Project: Code-Factory
+Owner: ssdajoker
+Team Mode: Enabled
 
-Tip: codellama is optimized for code generation
+To join this project, you need to:
+1. Authenticate with GitHub (your own account)
+2. Configure your LLM preferences
+
+This will take about 1 minute...
+
+[Press Enter to continue]
 ```
 
-**Configuration:**
-```yaml
-llm:
-  provider: ollama
-  endpoint: http://localhost:11434
-  model: llama3.2:latest
-  options:
-    temperature: 0.7
-    num_ctx: 8192      # Context window
-    num_predict: 2048  # Max tokens
+**Simplified Flow:**
+- Skip project initialization (already configured)
+- Only authenticate GitHub (personal token)
+- Only configure LLM (personal preference)
+- Inherit project settings from `.factory/config.toml`
+
+**Result:**
+```
+✅ Team setup complete!
+
+You're now connected to: Code-Factory
+
+Your personal settings:
+  GitHub: authenticated as @teammember
+  LLM: ollama (codellama:7b)
+
+Project settings (shared):
+  Contracts: /contracts
+  Reports: /reports
+
+Start working: factory
 ```
 
-### BYOK (Bring Your Own Key) Providers
+### 7.3 Team Synchronization
 
-**Supported Providers:**
+**Automatic Sync:**
+- Pull latest specs: `git pull origin main`
+- Factory detects changes automatically
+- No manual sync needed
 
-1. **OpenAI**
-   - Models: gpt-4o, gpt-4, gpt-3.5-turbo
-   - API: https://api.openai.com/v1
-   - Key format: sk-...
+**Conflict Resolution:**
+- If specs conflict, Factory shows diff
+- User chooses: keep local, use remote, or merge
+- Changes tracked in change order log
 
-2. **Anthropic**
-   - Models: claude-3-opus, claude-3-sonnet
-   - API: https://api.anthropic.com/v1
-   - Key format: sk-ant-...
+---
 
-3. **Google (Gemini)**
-   - Models: gemini-pro, gemini-ultra
-   - API: https://generativelanguage.googleapis.com/v1
-   - Key format: AIza...
+## 8. Security Considerations
 
-4. **Azure OpenAI**
-   - Models: Custom deployments
-   - API: https://{resource}.openai.azure.com
-   - Auth: API Key or Azure AD
+### 8.1 Token Security
 
-5. **Custom Endpoint**
-   - Any OpenAI-compatible API
-   - Examples: LM Studio, LocalAI, vLLM
+**Best Practices:**
+- Never commit tokens to repository
+- Use system keyring when available
+- Rotate tokens regularly (prompt user every 90 days)
+- Revoke tokens on `factory auth logout`
 
-**Interactive Configuration:**
+**Token Scopes:**
+- Request minimum necessary scopes
+- Explain each scope to user during auth
+- Allow user to decline optional scopes
 
-```
-LLM Provider: OpenAI
+### 8.2 Data Privacy
 
-API Key: •••••••••••••••••••••••••••••••••••••••• [Show]
+**Local-First:**
+- All specs and reports stored locally
+- GitHub used only for synchronization
+- LLM queries can be local (Ollama) or cloud (BYOK)
 
-Testing connection...
-  ✓ Connection successful
-  ✓ Available models: gpt-4o, gpt-4, gpt-3.5-turbo
+**Cloud LLM Privacy:**
+- Warn user when using cloud LLMs
+- Option to redact sensitive data before sending
+- Option to use local Ollama for sensitive projects
 
-Select model:
-> gpt-4o (recommended)
-  gpt-4
-  gpt-3.5-turbo
+### 8.3 Audit Trail
 
-Advanced Options: [Configure]
-  • Temperature: 0.7
-  • Max tokens: 2048
-  • Top P: 1.0
+**Logging:**
+- Log all GitHub API calls to `~/.factory/logs/github.log`
+- Log all LLM queries to `~/.factory/logs/llm.log`
+- Rotate logs daily, keep 30 days
 
-[Save] [Cancel]
-```
+**User Control:**
+- `factory logs show` - View recent activity
+- `factory logs clear` - Clear all logs
+- `factory privacy` - Review privacy settings
+
+---
+
+## 9. Testing & Validation
+
+### 9.1 Installation Testing
+
+**Test Matrix:**
+- OS: Linux (Ubuntu, Fedora), macOS (Intel, ARM), Windows (WSL, Git Bash)
+- Architecture: amd64, arm64
+- Network: Online, offline, slow connection
+- Permissions: sudo, non-sudo
 
 **Validation:**
+- Binary downloads correctly
+- Checksum verification works
+- Installation to correct path
+- Executable permissions set
+- Version command works
 
-```go
-func ValidateOpenAIKey(apiKey string) error {
-    req, _ := http.NewRequest(
-        "GET",
-        "https://api.openai.com/v1/models",
-        nil,
-    )
-    req.Header.Set("Authorization", "Bearer "+apiKey)
-    
-    client := &http.Client{Timeout: 10 * time.Second}
-    resp, err := client.Do(req)
-    if err != nil {
-        return fmt.Errorf("connection failed: %w", err)
-    }
-    defer resp.Body.Close()
-    
-    if resp.StatusCode == 401 {
-        return errors.New("invalid API key")
-    } else if resp.StatusCode != 200 {
-        return fmt.Errorf("API error: %d", resp.StatusCode)
-    }
-    
-    return nil
-}
-```
+### 9.2 OAuth Flow Testing
 
-### Configuration Persistence
+**Test Scenarios:**
+- Browser available (desktop)
+- No browser (SSH session)
+- Callback server port blocked
+- User cancels authorization
+- Token exchange fails
+- Invalid token
 
-**Config File Structure:**
-```yaml
-# ~/.config/factory/config.yaml
-version: "1.0"
+**Validation:**
+- Graceful fallback to device flow
+- Clear error messages
+- Recovery instructions provided
+- No hanging processes
 
-llm:
-  provider: "openai"  # ollama, openai, anthropic, google, azure, custom
-  
-  # For Ollama
-  endpoint: "http://localhost:11434"
-  model: "llama3.2:latest"
-  
-  # For BYOK (secrets stored in keyring)
-  api_key_ref: "factory.llm.openai.key"
-  model: "gpt-4o"
-  
-  # Common options
-  options:
-    temperature: 0.7
-    max_tokens: 2048
-    top_p: 1.0
-    
-github:
-  enabled: true
-  username: "johndoe"
-  token_ref: "factory.github.oauth.token"
-  app_installed: true
+### 9.3 LLM Detection Testing
 
-project:
-  name: "my-awesome-app"
-  path: "/home/user/projects/my-awesome-app"
-  contracts_dir: "contracts"
-  reports_dir: "reports"
+**Test Scenarios:**
+- Ollama running with models
+- Ollama running without models
+- Ollama not installed
+- API key provided
+- Invalid API key
+- No LLM available
+
+**Validation:**
+- Correct provider detected
+- Model selection works
+- Fallback to manual mode
+- Clear instructions for setup
+
+---
+
+## 10. Success Metrics
+
+### 10.1 Time to First Value
+
+**Target:** < 2 minutes from `curl` to first spec created
+
+**Measurement:**
+- Track time from installation start to `factory init` completion
+- Track time from init to first spec creation
+- Log metrics to `~/.factory/metrics.log` (opt-in)
+
+### 10.2 Setup Success Rate
+
+**Target:** > 95% successful first-time setup
+
+**Measurement:**
+- Track completion of each setup phase
+- Track fallback usage (offline, no LLM, etc.)
+- Track error rates and types
+
+### 10.3 User Satisfaction
+
+**Target:** > 4.5/5 stars for setup experience
+
+**Measurement:**
+- Optional feedback prompt after setup
+- GitHub issue sentiment analysis
+- Community feedback
+
+---
+
+## 11. Future Enhancements
+
+### 11.1 Phase 2 Features
+
+- **Auto-update:** `factory update` to update binary
+- **Plugin system:** Extend Factory with custom modes
+- **Cloud sync:** Optional cloud backup of specs
+- **Web UI:** Browser-based interface (localhost:3333)
+
+### 11.2 Phase 3 Features
+
+- **CI/CD integration:** GitHub Actions, GitLab CI
+- **Slack/Discord notifications:** Real-time alerts
+- **Multi-repo support:** Manage multiple projects
+- **Spec marketplace:** Share and discover spec templates
+
+---
+
+## Appendix A: Command Reference
+
+```bash
+# Installation
+curl -sSL https://raw.githubusercontent.com/ssdajoker/Code-Factory/main/scripts/install.sh | sh
+
+# Initialization
+factory init                    # Full setup
+factory init --team             # Join existing team project
+factory init --offline          # Skip GitHub integration
+factory init --no-llm           # Skip LLM configuration
+
+# Authentication
+factory auth login              # Authenticate with GitHub
+factory auth logout             # Revoke token and logout
+factory auth status             # Check authentication status
+factory auth reset              # Reset and re-authenticate
+
+# Configuration
+factory config show             # Show current configuration
+factory config edit             # Edit configuration file
+factory config llm              # Configure LLM provider
+factory config github           # Configure GitHub integration
+
+# Modes
+factory                         # Start TUI (default mode)
+factory intake                  # Start in INTAKE mode
+factory review                  # Start in REVIEW mode
+factory change-order            # Start in CHANGE_ORDER mode
+factory rescue                  # Start in RESCUE mode
+
+# Utilities
+factory version                 # Show version
+factory help                    # Show help
+factory doctor                  # Diagnose issues
+factory logs                    # View logs
 ```
 
 ---
 
-## Secret Management
-
-### Principle: Never Store Secrets in Plain Text
-
-**Storage Locations (in order of preference):**
-1. **OS Keyring** - System-native secure storage (primary)
-2. **Environment Variables** - For CI/CD and containers
-3. **Encrypted File** - Fallback for systems without keyring
-
-### OS Keyring Implementation
-
-**Library:** `github.com/zalando/go-keyring`
-
-**Operations:**
-
-```go
-package secrets
-
-import (
-    "fmt"
-    "github.com/zalando/go-keyring"
-)
-
-const ServiceName = "factory"
-
-// Store a secret
-func Store(key, value string) error {
-    return keyring.Set(ServiceName, key, value)
-}
-
-// Retrieve a secret
-func Get(key string) (string, error) {
-    value, err := keyring.Get(ServiceName, key)
-    if err == keyring.ErrNotFound {
-        return "", fmt.Errorf("secret not found: %s", key)
-    }
-    return value, err
-}
-
-// Delete a secret
-func Delete(key string) error {
-    return keyring.Delete(ServiceName, key)
-}
-
-// List all secret keys
-func List() ([]string, error) {
-    // Note: go-keyring doesn't support listing
-    // We maintain a list in config file
-    return []string{}, nil
-}
-```
-
-**Secret References in Config:**
-
-```yaml
-llm:
-  provider: openai
-  api_key_ref: "llm.openai.key"  # Reference to keyring entry
-
-github:
-  token_ref: "github.oauth.token"
-```
-
-**Fallback: Encrypted File**
-
-For systems without keyring support (e.g., headless Linux servers):
-
-```go
-import (
-    "crypto/aes"
-    "crypto/cipher"
-    "crypto/rand"
-    "encoding/base64"
-    "io"
-)
-
-// Encrypt using AES-GCM with key derived from machine ID + user password
-func EncryptSecret(plaintext, password string) (string, error) {
-    key := deriveKey(password, getMachineID())
-    
-    block, err := aes.NewCipher(key)
-    if err != nil {
-        return "", err
-    }
-    
-    gcm, err := cipher.NewGCM(block)
-    if err != nil {
-        return "", err
-    }
-    
-    nonce := make([]byte, gcm.NonceSize())
-    io.ReadFull(rand.Reader, nonce)
-    
-    ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
-    return base64.StdEncoding.EncodeToString(ciphertext), nil
-}
-
-// Store in ~/.config/factory/secrets.enc
-```
-
-### Environment Variable Fallback
-
-**Priority:**
-1. Keyring
-2. Environment variable
-3. Prompt user
-
-```go
-func GetLLMAPIKey(provider string) (string, error) {
-    // Try keyring first
-    key, err := secrets.Get("llm." + provider + ".key")
-    if err == nil {
-        return key, nil
-    }
-    
-    // Try environment variable
-    envVar := strings.ToUpper(provider) + "_API_KEY"
-    if key := os.Getenv(envVar); key != "" {
-        return key, nil
-    }
-    
-    // Prompt user
-    return promptForAPIKey(provider)
-}
-```
-
-### User Consent & Confirmation
-
-**Before Storing Secrets:**
+## Appendix B: File Structure Reference
 
 ```
-Store API Key Securely?
+~/.factory/                     # Global configuration
+├── config.toml                 # User preferences
+├── github_token                # OAuth token (encrypted)
+├── logs/                       # Activity logs
+│   ├── github.log
+│   └── llm.log
+└── cache/                      # Temporary cache
 
-Your OpenAI API key will be stored in:
-  • macOS: Keychain
-  • Linux: Secret Service (gnome-keyring/kwallet)
-  • Windows: Credential Manager
+{project}/.factory/             # Project configuration
+├── config.toml                 # Project settings (committed)
+├── cache/                      # Local cache (gitignored)
+└── temp/                       # Temporary files (gitignored)
 
-This allows Factory to use the API without re-prompting.
+{project}/contracts/            # Specifications (committed)
+├── README.md
+├── system_architecture.md
+└── feature_specs/
 
-You can remove it anytime with: factory config reset
-
-[Yes, store securely] [No, use environment variable] [Cancel]
-```
-
-**On Access:**
-
-First time accessing a stored secret:
-
-```
-Factory needs to access your OpenAI API key from Keychain.
-
-[Allow] [Deny]
-
-Tip: You can revoke access anytime in System Preferences
+{project}/reports/              # Generated reports (gitignored)
+├── README.md
+└── review_2026-01-07.md
 ```
 
 ---
 
-## User Experience & Feedback
-
-### Progress Indicators
-
-**Spinner Components:**
-```go
-import "github.com/charmbracelet/bubbles/spinner"
-
-type model struct {
-    spinner  spinner.Model
-    status   string
-    progress float64
-}
-
-func (m model) View() string {
-    return fmt.Sprintf(
-        "%s %s... %.0f%%",
-        m.spinner.View(),
-        m.status,
-        m.progress*100,
-    )
-}
-```
-
-**Progress Bar:**
-```
-Setting up Code-Factory...
-
-[████████████████░░░░░░░░] 65%
-
-Current step: Configuring LLM provider...
-```
-
-### Error Handling
-
-**Principle:** Never leave user confused or in broken state
-
-**Error Display:**
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║ ⚠️  Setup Encountered an Issue                               ║
-╚══════════════════════════════════════════════════════════════╝
-
-Error: Could not connect to Ollama
-
-Possible causes:
-  • Ollama is not running
-  • Ollama is running on a different port
-  • Firewall is blocking connection
-
-Suggested actions:
-  1. Start Ollama: systemctl start ollama
-  2. Check status: ollama list
-  3. Try manual endpoint: factory config llm --endpoint=...
-
-[Retry] [Use different provider] [Abort setup]
-
-Need help? Visit: https://docs.code-factory.dev/troubleshooting
-```
-
-**Error Recovery:**
-
-```go
-func handleSetupError(err error) Action {
-    switch {
-    case isNetworkError(err):
-        return Action{
-            Message: "Network connection failed",
-            Suggestions: []string{
-                "Check internet connectivity",
-                "Try again in a moment",
-                "Continue with offline mode",
-            },
-            CanRetry: true,
-        }
-    
-    case isAuthError(err):
-        return Action{
-            Message: "Authentication failed",
-            Suggestions: []string{
-                "Check your credentials",
-                "Regenerate API key",
-                "Try different authentication method",
-            },
-            CanRetry: true,
-        }
-    
-    default:
-        return Action{
-            Message: "Unexpected error occurred",
-            Suggestions: []string{
-                "Save error log",
-                "Report issue on GitHub",
-                "Contact support",
-            },
-            CanRetry: false,
-        }
-    }
-}
-```
-
-### Contextual Help
-
-**Inline Tips:**
-
-```
-💡 Tip: Press '?' at any time for help
-
-💡 Tip: You can reconfigure anytime with `factory config`
-
-💡 Tip: All specs are version-controlled. Use git to track changes.
-```
-
-**Help Dialog (Press '?'):**
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║ Help: LLM Configuration                                      ║
-╚══════════════════════════════════════════════════════════════╝
-
-Ollama vs BYOK:
-
-Ollama (Recommended):
-  ✓ Free and open source
-  ✓ Runs locally (private)
-  ✓ No API costs
-  ✗ Requires local resources
-  ✗ Limited to smaller models
-
-BYOK (OpenAI, Claude, etc.):
-  ✓ Access to latest models
-  ✓ No local resources needed
-  ✓ Generally faster
-  ✗ Costs per API call
-  ✗ Data sent to third party
-
-Recommendation:
-  • Development: Use Ollama (free, private)
-  • Production: Use BYOK (better quality)
-
-[Close] [Learn more online]
-```
-
-### Confirmation Before Destructive Actions
-
-**Example:**
-
-```
-⚠️  Warning: Overwrite Existing Configuration?
-
-Current configuration will be replaced:
-  • LLM Provider: Ollama → OpenAI
-  • GitHub: Disconnected → Connected
-
-This action cannot be undone.
-
-Type 'yes' to confirm: _
-```
-
----
-
-## Fallback Scenarios
-
-### Scenario 1: Offline Mode
-
-**Detection:**
-```go
-func IsOnline() bool {
-    _, err := net.DialTimeout("tcp", "github.com:443", 3*time.Second)
-    return err == nil
-}
-```
-
-**Behavior:**
-
-```
-⚠️  No internet connection detected
-
-Running in offline mode:
-  ✓ Ollama (local) will be used
-  ✗ GitHub integration unavailable
-  ✗ External LLM providers unavailable
-
-Continue with offline mode? [Y/n]
-```
-
-**Limitations:**
-- No GitHub OAuth
-- No external LLM APIs
-- Must use local Ollama
-
-### Scenario 2: No Ollama + Offline
-
-**Cannot proceed:**
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║ ⚠️  Setup Cannot Continue                                    ║
-╚══════════════════════════════════════════════════════════════╝
-
-Code-Factory requires an LLM provider, but:
-  • No internet connection (cannot use external APIs)
-  • Ollama not detected (no local LLM)
-
-To continue, either:
-  1. Install Ollama: https://ollama.ai/download
-  2. Connect to internet and use external provider
-
-[Retry detection] [Exit setup]
-```
-
-### Scenario 3: GitHub OAuth Failure
-
-**Fallback Options:**
-
-```
-GitHub OAuth failed
-
-Alternative authentication methods:
-  1. Personal Access Token (classic)
-     → Create at: https://github.com/settings/tokens
-     → Requires: repo, read:user
-
-  2. GitHub CLI (gh)
-     → Use existing authentication: gh auth status
-
-  3. Skip GitHub integration
-     → Continue with local-only mode
-
-Select option [1-3]: _
-```
-
-### Scenario 4: Keyring Not Available
-
-**Detection & Fallback:**
-
-```go
-func IsKeyringAvailable() bool {
-    err := keyring.Set("factory.test", "test", "test")
-    if err != nil {
-        return false
-    }
-    keyring.Delete("factory.test", "test")
-    return true
-}
-```
-
-**Fallback Flow:**
-
-```
-⚠️  Secure keyring not available
-
-Your system doesn't have a keyring service (common in headless servers).
-
-Alternative storage options:
-  1. Environment variables (recommended for servers)
-     → Export OPENAI_API_KEY=sk-...
-
-  2. Encrypted file (less secure)
-     → Requires master password
-
-  3. Config file (NOT recommended - plain text)
-     → Only for testing/development
-
-Select option [1-3]: _
-```
-
-### Scenario 5: Running in CI/CD
-
-**Detection:**
-
-```go
-func IsCI() bool {
-    return os.Getenv("CI") == "true" ||
-           os.Getenv("GITHUB_ACTIONS") == "true" ||
-           os.Getenv("GITLAB_CI") == "true"
-}
-```
-
-**Behavior:**
-
-```
-CI/CD environment detected
-
-Skipping interactive setup.
-
-Configure via environment variables:
-  export FACTORY_LLM_PROVIDER=openai
-  export OPENAI_API_KEY=sk-...
-  export FACTORY_GITHUB_TOKEN=ghp_...
-
-Or use config file:
-  factory init --config=factory.yaml --non-interactive
-
-[Exit]
-```
-
----
-
-## Technical Implementation
-
-### CLI Structure
-
-```
-cmd/factory/
-├── main.go              # Entry point
-├── commands/
-│   ├── init.go          # Bootstrap command
-│   ├── intake.go
-│   ├── review.go
-│   ├── change_order.go
-│   ├── rescue.go
-│   └── config.go        # Reconfiguration
-└── tui/
-    └── init/
-        ├── model.go     # Bubble Tea model
-        ├── welcome.go   # Welcome screen
-        ├── env.go       # Environment detection
-        ├── llm.go       # LLM configuration
-        ├── github.go    # GitHub integration
-        └── success.go   # Success screen
-```
-
-### State Machine
-
-```go
-type InitState int
-
-const (
-    StateWelcome InitState = iota
-    StateEnvDetection
-    StateLLMConfig
-    StateGitHubIntegration
-    StateProjectInit
-    StateSuccess
-)
-
-type InitModel struct {
-    state      InitState
-    env        *EnvironmentInfo
-    llm        *LLMConfig
-    github     *GitHubConfig
-    project    *ProjectConfig
-    err        error
-}
-
-func (m InitModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
-    case tea.KeyMsg:
-        switch msg.String() {
-        case "ctrl+c", "q":
-            return m, tea.Quit
-        case "enter":
-            return m.advance()
-        }
-    }
-    return m, nil
-}
-
-func (m InitModel) advance() (tea.Model, tea.Cmd) {
-    switch m.state {
-    case StateWelcome:
-        m.state = StateEnvDetection
-        return m, detectEnvironment
-    case StateEnvDetection:
-        m.state = StateLLMConfig
-        return m, detectLLM
-    // ... etc
-    }
-}
-```
-
-### Configuration Schema
-
-```go
-// pkg/config/types.go
-type Config struct {
-    Version string         `yaml:"version"`
-    LLM     LLMConfig      `yaml:"llm"`
-    GitHub  *GitHubConfig  `yaml:"github,omitempty"`
-    Project ProjectConfig  `yaml:"project"`
-}
-
-type LLMConfig struct {
-    Provider  string                 `yaml:"provider"`  // ollama, openai, etc.
-    Endpoint  string                 `yaml:"endpoint,omitempty"`
-    Model     string                 `yaml:"model"`
-    APIKeyRef string                 `yaml:"api_key_ref,omitempty"`
-    Options   map[string]interface{} `yaml:"options,omitempty"`
-}
-
-type GitHubConfig struct {
-    Enabled         bool   `yaml:"enabled"`
-    Username        string `yaml:"username"`
-    TokenRef        string `yaml:"token_ref"`
-    AppInstalled    bool   `yaml:"app_installed"`
-    InstallationID  int64  `yaml:"installation_id,omitempty"`
-}
-
-type ProjectConfig struct {
-    Name         string `yaml:"name"`
-    Path         string `yaml:"path"`
-    ContractsDir string `yaml:"contracts_dir"`
-    ReportsDir   string `yaml:"reports_dir"`
-}
-```
-
-### API Calls Summary
-
-**GitHub API:**
-
-1. `POST /login/device/code` - Initiate OAuth device flow
-2. `POST /login/oauth/access_token` - Poll for access token
-3. `GET /user` - Get authenticated user info
-4. `GET /user/installations` - Check GitHub App installation
-5. `GET /user/repos` - List user repositories (optional)
-
-**Ollama API:**
-
-1. `GET /api/tags` - List available models
-2. `POST /api/generate` - Test generation (optional)
-
-**External LLM APIs:**
-
-1. OpenAI: `GET /v1/models` - Validate API key
-2. Anthropic: `POST /v1/messages` - Test request
-3. Google: Similar validation calls
-
-### Error Codes
-
-```go
-const (
-    ErrOK = 0
-    
-    // Environment errors (1xx)
-    ErrNoInternet = 101
-    ErrNoKeyring = 102
-    ErrNoWriteAccess = 103
-    
-    // LLM errors (2xx)
-    ErrNoLLMProvider = 201
-    ErrOllamaNotFound = 202
-    ErrInvalidAPIKey = 203
-    ErrLLMConnectionFailed = 204
-    
-    // GitHub errors (3xx)
-    ErrGitHubOAuthFailed = 301
-    ErrGitHubAppNotInstalled = 302
-    ErrGitHubPermissionDenied = 303
-    
-    // Project errors (4xx)
-    ErrInvalidProjectPath = 401
-    ErrProjectAlreadyExists = 402
-    ErrGitInitFailed = 403
-)
-```
-
----
-
-## Testing Requirements
-
-### Unit Tests
-
-**Coverage Requirements:**
-- Environment detection: 90%+
-- OAuth flow: 85%+
-- LLM configuration: 85%+
-- Secret management: 95%+
-
-**Example Tests:**
-
-```go
-// internal/bootstrap/env_test.go
-func TestDetectEnvironment(t *testing.T) {
-    tests := []struct {
-        name     string
-        setup    func()
-        expected EnvironmentInfo
-    }{
-        {
-            name: "codespaces detected",
-            setup: func() {
-                os.Setenv("CODESPACES", "true")
-            },
-            expected: EnvironmentInfo{
-                IsCodespaces: true,
-                IsOnline: true,
-            },
-        },
-        // ... more tests
-    }
-    
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            tt.setup()
-            defer os.Clearenv()
-            
-            result, err := DetectEnvironment()
-            assert.NoError(t, err)
-            assert.Equal(t, tt.expected, result)
-        })
-    }
-}
-```
-
-### Integration Tests
-
-**Mock GitHub API:**
-```go
-// Use httptest to mock GitHub API responses
-func TestOAuthDeviceFlow(t *testing.T) {
-    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        if r.URL.Path == "/login/device/code" {
-            json.NewEncoder(w).Encode(DeviceCodeResponse{
-                DeviceCode: "test-device-code",
-                UserCode: "ABCD-1234",
-                VerificationURI: "https://github.com/login/device",
-            })
-        }
-    }))
-    defer server.Close()
-    
-    // Test OAuth flow with mock server
-}
-```
-
-**Mock Ollama:**
-```go
-func TestOllamaDetection(t *testing.T) {
-    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        json.NewEncoder(w).Encode(map[string]interface{}{
-            "models": []map[string]string{
-                {"name": "llama3.2:latest"},
-            },
-        })
-    }))
-    defer server.Close()
-    
-    // Override Ollama endpoint for test
-    config, err := DetectOllama(server.URL)
-    assert.NoError(t, err)
-    assert.True(t, config.Available)
-}
-```
-
-### E2E Tests
-
-**Scenarios:**
-
-1. **Fresh install, Ollama available**
-   - Should detect Ollama
-   - Should offer model selection
-   - Should complete successfully
-
-2. **Fresh install, no Ollama, with API key env var**
-   - Should detect API key from environment
-   - Should validate connection
-   - Should complete successfully
-
-3. **Fresh install, offline**
-   - Should detect offline mode
-   - Should show appropriate message
-   - Should guide user on next steps
-
-4. **Re-initialization**
-   - Should detect existing config
-   - Should ask for confirmation
-   - Should preserve selected settings
-
-### Manual Testing Checklist
-
-- [ ] Fresh install on macOS
-- [ ] Fresh install on Linux (Ubuntu)
-- [ ] Fresh install on Windows
-- [ ] Re-init with existing config
-- [ ] Offline mode
-- [ ] Ollama auto-detection
-- [ ] Each BYOK provider (OpenAI, Anthropic, etc.)
-- [ ] GitHub OAuth device flow
-- [ ] GitHub App installation
-- [ ] Error recovery flows
-- [ ] Help dialogs
-- [ ] Keyboard navigation
-- [ ] Screen resize handling
-
----
-
-## Appendix
-
-### Sample Configuration Files
-
-**~/.config/factory/config.yaml:**
-```yaml
-version: "1.0.0"
-
-llm:
-  provider: ollama
-  endpoint: http://localhost:11434
-  model: llama3.2:latest
-  options:
-    temperature: 0.7
-    num_ctx: 8192
-
-github:
-  enabled: true
-  username: johndoe
-  token_ref: github.oauth.token
-  app_installed: true
-  installation_id: 12345678
-
-project:
-  name: my-awesome-app
-  path: /home/user/projects/my-awesome-app
-  contracts_dir: contracts
-  reports_dir: reports
-
-ui:
-  color_scheme: auto  # auto, light, dark
-  animations: true
-```
-
-### Dependencies
-
-**go.mod:**
-```go
-module github.com/ssdajoker/Code-Factory
-
-go 1.21
-
-require (
-    github.com/charmbracelet/bubbletea v0.25.0
-    github.com/charmbracelet/bubbles v0.18.0
-    github.com/charmbracelet/lipgloss v0.9.1
-    github.com/zalando/go-keyring v0.2.3
-    github.com/spf13/cobra v1.8.0
-    gopkg.in/yaml.v3 v3.0.1
-    github.com/google/go-github/v57 v57.0.0
-    golang.org/x/oauth2 v0.15.0
-)
-```
-
-### References
-
-- [GitHub OAuth Device Flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow)
-- [GitHub App Installation](https://docs.github.com/en/apps/maintaining-github-apps/installing-github-apps)
-- [Ollama API Documentation](https://github.com/ollama/ollama/blob/main/docs/api.md)
-- [Charm.sh Bubble Tea Tutorial](https://github.com/charmbracelet/bubbletea/tree/master/tutorials)
-
----
-
-## Revision History
-
-| Version | Date | Changes | Author |
-|---------|------|---------|--------|
-| 1.0.0 | 2026-01-07 | Initial specification | Code-Factory Team |
-
+**End of Specification**
