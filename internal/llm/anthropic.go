@@ -79,7 +79,7 @@ func (a *AnthropicProvider) Complete(ctx context.Context, prompt string, opts Op
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", a.apiKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
+req.Header.Set("anthropic-version", "2023-06-01")
 
 	resp, err := a.client.Do(req)
 	if err != nil {
