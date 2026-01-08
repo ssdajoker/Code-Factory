@@ -1,36 +1,24 @@
 module github.com/ssdajoker/Code-Factory
 
-go 1.21
+go 1.23.0
+
+// TUI Framework
+require github.com/charmbracelet/bubbletea v0.25.0
 
 require (
-	// TUI Framework
-	github.com/charmbracelet/bubbletea v0.25.0
-	github.com/charmbracelet/bubbles v0.18.0
-	github.com/charmbracelet/lipgloss v0.9.1
-	
-	// CLI Framework
-	github.com/spf13/cobra v1.8.0
-	github.com/spf13/viper v1.18.2
-	
-	// Git Operations
-	github.com/go-git/go-git/v5 v5.11.0
-	
-	// GitHub API
-	github.com/google/go-github/v57 v57.0.0
-	golang.org/x/oauth2 v0.15.0
-	
-	// LLM Clients
-	github.com/sashabaranov/go-openai v1.19.2
-	
-	// Configuration
-	gopkg.in/yaml.v3 v3.0.1
-	
-	// Secret Management
-	github.com/zalando/go-keyring v0.2.3
-	
-	// Markdown
-	github.com/yuin/goldmark v1.6.0
-	
-	// Utilities
-	github.com/google/uuid v1.5.0
+	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/mattn/go-isatty v0.0.18 // indirect
+	github.com/mattn/go-localereader v0.0.1 // indirect
+	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/muesli/ansi v0.0.0-20211018074035-2e021307bc4b // indirect
+	github.com/muesli/cancelreader v0.2.2 // indirect
+	github.com/muesli/reflow v0.3.0 // indirect
+	github.com/muesli/termenv v0.15.2 // indirect
+	github.com/rivo/uniseg v0.4.6 // indirect
+	golang.org/x/sync v0.5.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/term v0.6.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 )
