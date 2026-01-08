@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Factory - Spec-Driven Software Factory</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏭 Code Factory</h1>
+            <p class="subtitle">Spec-Driven Software Factory</p>
+        </header>
+
+        <nav class="modes">
+            <button class="mode-btn" data-mode="intake">
+                <span class="icon">📝</span>
+                <span class="label">INTAKE</span>
+                <span class="desc">Capture Vision</span>
+            </button>
+            <button class="mode-btn" data-mode="review">
+                <span class="icon">🔍</span>
+                <span class="label">REVIEW</span>
+                <span class="desc">Check Code</span>
+            </button>
+            <button class="mode-btn" data-mode="rescue">
+                <span class="icon">🆘</span>
+                <span class="label">RESCUE</span>
+                <span class="desc">Reverse Engineer</span>
+            </button>
+            <button class="mode-btn" data-mode="change-order">
+                <span class="icon">📋</span>
+                <span class="label">CHANGE ORDER</span>
+                <span class="desc">Track Drift</span>
+            </button>
+        </nav>
+
+        <main id="content">
+            <div class="welcome">
+                <h2>Welcome to Code Factory</h2>
+                <p>Select a mode above to get started.</p>
+                <div id="status"></div>
+            </div>
+        </main>
+
+        <section class="files">
+            <div class="file-list">
+                <h3>Contracts</h3>
+                <ul id="contracts-list"></ul>
+            </div>
+            <div class="file-list">
+                <h3>Reports</h3>
+                <ul id="reports-list"></ul>
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
