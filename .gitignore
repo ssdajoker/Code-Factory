@@ -6,47 +6,49 @@ factory-*
 *.so
 *.dylib
 
-# Test binaries
+# Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool
 *.out
-coverage.html
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# Factory outputs and cache
+.factory/
+*.factory.tmp
+reports/*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Secrets and credentials
+.env
+*.key
+*.pem
+config.local.yaml
 
 # Build artifacts
 dist/
 build/
 
-# Factory runtime
-.factory/
-reports/
-*.factory.tmp
-
-# Go workspace file
-go.work
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment
-.env
-.env.local
-
-# Secrets
-*.key
-*.pem
-secrets.yaml
-
 # Logs
 *.log
+logs/
 
-# Dependencies
-vendor/
+# Temporary files
+tmp/
+temp/
