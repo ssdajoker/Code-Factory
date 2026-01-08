@@ -27,7 +27,17 @@ Code-Factory is a **single-binary, cross-platform tool** that helps developers m
 
 ### Installation
 
+**Recommended (Safer Two-Step):**
 ```bash
+# Download and inspect the script first
+curl -sSLO https://raw.githubusercontent.com/ssdajoker/Code-Factory/main/scripts/install.sh
+less install.sh  # Review the script
+sh install.sh
+```
+
+**Quick Install (One-liner):**
+```bash
+# ⚠️ Only use if you trust the source
 curl -sSL https://raw.githubusercontent.com/ssdajoker/Code-Factory/main/scripts/install.sh | sh
 ```
 

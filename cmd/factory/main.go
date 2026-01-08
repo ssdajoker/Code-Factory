@@ -1,70 +1,188 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+
+	"github.com/ssdajoker/Code-Factory/internal/tui"
 )
 
 const version = "1.0.0"
 
 func main() {
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "--version", "-v":
-			fmt.Printf("Factory v%s\n", version)
-			return
-		case "--help", "-h":
-			printHelp()
-			return
-		case "init":
-			fmt.Println("Running factory init...")
-			fmt.Println("(Implementation coming soon)")
-			return
-		case "intake":
-			fmt.Println("Starting INTAKE mode...")
-			fmt.Println("(Implementation coming soon)")
-			return
-		case "review":
-			fmt.Println("Starting REVIEW mode...")
-			fmt.Println("(Implementation coming soon)")
-			return
-		case "change-order":
-			fmt.Println("Starting CHANGE_ORDER mode...")
-			fmt.Println("(Implementation coming soon)")
-			return
-		case "rescue":
-			fmt.Println("Starting RESCUE mode...")
-			fmt.Println("(Implementation coming soon)")
-			return
-		}
+	// Global flags
+	showVersion := flag.Bool("version", false, "Show version")
+	showHelp := flag.Bool("help", false, "Show help")
+	flag.BoolVar(showVersion, "v", false, "Show version (shorthand)")
+	flag.BoolVar(showHelp, "h", false, "Show help (shorthand)")
+
+	// Custom usage
+	flag.Usage = printHelp
+
+	// Parse global flags only if no subcommand
+	if len(os.Args) < 2 {
+		// No args: launch TUI
+		launchTUI()
+		return
 	}
 
-	// Default: start TUI
-	fmt.Println("Starting Factory TUI...")
+	// Check for subcommand
+	cmd := os.Args[1]
+
+	// Handle global flags first
+	if cmd == "--version" || cmd == "-v" {
+		fmt.Printf("Factory v%s\n", version)
+		return
+	}
+	if cmd == "--help" || cmd == "-h" || cmd == "help" {
+		printHelp()
+		return
+	}
+
+	// Subcommand dispatch
+	switch cmd {
+	case "init":
+		cmdInit(os.Args[2:])
+	case "intake":
+		cmdIntake(os.Args[2:])
+	case "review":
+		cmdReview(os.Args[2:])
+	case "rescue":
+		cmdRescue(os.Args[2:])
+	case "change-order":
+		cmdChangeOrder(os.Args[2:])
+	case "github":
+		cmdGitHub(os.Args[2:])
+	case "version":
+		fmt.Printf("Factory v%s\n", version)
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", cmd)
+		printHelp()
+		os.Exit(1)
+	}
+}
+
+func launchTUI() {
+	if err := tui.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func cmdInit(args []string) {
+	fs := flag.NewFlagSet("init", flag.ExitOnError)
+	quick := fs.Bool("quick", false, "Quick start with defaults")
+	fs.Parse(args)
+
+	fmt.Println("Running factory init...")
+	if *quick {
+		fmt.Println("Using quick start mode")
+	}
 	fmt.Println("(Implementation coming soon)")
+}
+
+func cmdIntake(args []string) {
+	fs := flag.NewFlagSet("intake", flag.ExitOnError)
+	name := fs.String("name", "", "Project name")
+	fs.Parse(args)
+
+	fmt.Println("Starting INTAKE mode...")
+	if *name != "" {
+		fmt.Printf("Project: %s\n", *name)
+	}
+	fmt.Println("(Implementation coming soon)")
+}
+
+func cmdReview(args []string) {
+	fs := flag.NewFlagSet("review", flag.ExitOnError)
+	spec := fs.String("spec", "", "Specification file to review against")
+	fs.Parse(args)
+
+	fmt.Println("Starting REVIEW mode...")
+	if *spec != "" {
+		fmt.Printf("Spec: %s\n", *spec)
+	}
+	fmt.Println("(Implementation coming soon)")
+}
+
+func cmdRescue(args []string) {
+	fs := flag.NewFlagSet("rescue", flag.ExitOnError)
+	path := fs.String("path", ".", "Path to codebase")
+	fs.Parse(args)
+
+	fmt.Println("Starting RESCUE mode...")
+	fmt.Printf("Path: %s\n", *path)
+	fmt.Println("(Implementation coming soon)")
+}
+
+func cmdChangeOrder(args []string) {
+	fs := flag.NewFlagSet("change-order", flag.ExitOnError)
+	fs.Parse(args)
+
+	fmt.Println("Starting CHANGE_ORDER mode...")
+	fmt.Println("(Implementation coming soon)")
+}
+
+func cmdGitHub(args []string) {
+	fs := flag.NewFlagSet("github", flag.ExitOnError)
+	login := fs.Bool("login", false, "Authenticate with GitHub")
+	status := fs.Bool("status", false, "Show GitHub connection status")
+	fs.Parse(args)
+
+	if *login {
+		fmt.Println("Starting GitHub OAuth flow...")
+		fmt.Println("(Implementation coming soon)")
+		return
+	}
+	if *status {
+		fmt.Println("GitHub connection status: Not connected")
+		return
+	}
+	fmt.Println("GitHub integration commands:")
+	fmt.Println("  factory github --login   Authenticate with GitHub")
+	fmt.Println("  factory github --status  Show connection status")
 }
 
 func printHelp() {
 	fmt.Printf(`Factory v%s - Spec-Driven Software Factory
 
 USAGE:
-    factory [COMMAND]
+    factory [COMMAND] [FLAGS]
 
 COMMANDS:
     init            Initialize Factory in current project
-    intake          Start INTAKE mode (capture vision)
-    review          Start REVIEW mode (check code against specs)
-    change-order    Start CHANGE_ORDER mode (track drift)
-    rescue          Start RESCUE mode (reverse-engineer codebase)
+                    --quick    Quick start with defaults
     
+    intake          Start INTAKE mode (capture vision)
+                    --name     Project name
+    
+    review          Start REVIEW mode (check code against specs)
+                    --spec     Specification file path
+    
+    change-order    Start CHANGE_ORDER mode (track drift)
+    
+    rescue          Start RESCUE mode (reverse-engineer codebase)
+                    --path     Path to codebase (default: .)
+    
+    github          GitHub integration
+                    --login    Authenticate with GitHub
+                    --status   Show connection status
+    
+    version         Show version
+    help            Show this help
+
+GLOBAL FLAGS:
     --version, -v   Show version
     --help, -h      Show this help
 
 EXAMPLES:
-    factory init                 # Initialize Factory
     factory                      # Start TUI
-    factory intake               # Create new specification
-    factory review               # Review code against specs
+    factory init                 # Initialize Factory
+    factory init --quick         # Quick initialization
+    factory intake --name myapp  # Create new specification
+    factory review --spec spec.md # Review code against spec
+    factory github --login       # Connect to GitHub
 
 DOCUMENTATION:
     https://github.com/ssdajoker/Code-Factory

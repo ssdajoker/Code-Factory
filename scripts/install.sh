@@ -2,7 +2,14 @@
 set -e
 
 # Code-Factory Installation Script
-# Usage: curl -sSL https://raw.githubusercontent.com/ssdajoker/Code-Factory/main/scripts/install.sh | sh
+# 
+# RECOMMENDED (Safer Two-Step Installation):
+#   curl -sSLO https://raw.githubusercontent.com/ssdajoker/Code-Factory/main/scripts/install.sh
+#   less install.sh  # Inspect the script
+#   sh install.sh
+#
+# CONVENIENCE (One-liner, use at your own risk):
+#   curl -sSL https://raw.githubusercontent.com/ssdajoker/Code-Factory/main/scripts/install.sh | sh
 
 REPO="ssdajoker/Code-Factory"
 INSTALL_DIR="/usr/local/bin"
@@ -91,7 +98,7 @@ download_binary() {
     echo "${BLUE}→ Downloading $BINARY_NAME...${NC}"
     
     TMP_DIR=$(mktemp -d)
-    TMP_FILE="$TMP_DIR/factory"
+    TMP_FILE="$TMP_DIR/$BINARY_NAME"
     
     if ! curl -sL "$DOWNLOAD_URL" -o "$TMP_FILE"; then
         echo "${RED}✗ Failed to download binary${NC}"
