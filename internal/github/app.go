@@ -51,7 +51,7 @@ func (a *AppChecker) CheckPermissions() (*Permissions, error) {
 	return &Permissions{
 		Authenticated: true,
 		Username:      user.Login,
-		CanReadRepos:  hasScope(scopes, "repo") || hasScope(scopes, "public_repo") || hasScope(scopes, "read:user"),
+CanReadRepos:  hasScope(scopes, "repo") || hasScope(scopes, "public_repo"),
 		CanWriteRepos: hasScope(scopes, "repo") || hasScope(scopes, "public_repo"),
 	}, nil
 }
