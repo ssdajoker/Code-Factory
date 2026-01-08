@@ -68,7 +68,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/", h.Index)
 
 	s.server = &http.Server{
-		Addr:         fmt.Sprintf(":%d", s.port),
+		Addr:         fmt.Sprintf("localhost:%d", s.port),
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
