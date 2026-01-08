@@ -1,108 +1,78 @@
-# Code-Factory Makefile
+.PHONY: all build test lint clean install release help
 
-.PHONY: help build run test clean install lint fmt
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
 
-# Variables
-BINARY_NAME=factory
-VERSION=$(shell git describe --tags --always --dirty)
-COMMIT=$(shell git rev-parse --short HEAD)
-BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
-LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildTime=$(BUILD_TIME)"
+BINARY := factory
+MAIN := ./cmd/factory
 
-# Default target
-help:
-	@echo "Code-Factory Build System"
-	@echo ""
-	@echo "Available targets:"
-	@echo "  make build        - Build binary for current platform"
-	@echo "  make build-all    - Build for all platforms"
-	@echo "  make run          - Build and run"
-	@echo "  make test         - Run tests"
-	@echo "  make test-verbose - Run tests with verbose output"
-	@echo "  make lint         - Run linters"
-	@echo "  make fmt          - Format code"
-	@echo "  make clean        - Remove build artifacts"
-	@echo "  make install      - Install to /usr/local/bin"
-	@echo ""
+all: build
 
-# Build for current platform
+## build: Build the binary
 build:
-	@echo "Building $(BINARY_NAME) $(VERSION)..."
-	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/factory
-	@echo "✓ Build complete: $(BINARY_NAME)"
+	@echo "Building $(BINARY)..."
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(MAIN)
 
-# Build for all platforms
-build-all: clean
-	@echo "Building for all platforms..."
-	@mkdir -p dist
-	
-	@echo "Building for macOS (Intel)..."
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-amd64 ./cmd/factory
-	
-	@echo "Building for macOS (Apple Silicon)..."
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-darwin-arm64 ./cmd/factory
-	
-	@echo "Building for Linux (x86_64)..."
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-amd64 ./cmd/factory
-	
-	@echo "Building for Linux (ARM64)..."
-	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-linux-arm64 ./cmd/factory
-	
-	@echo "Building for Windows..."
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/$(BINARY_NAME)-windows-amd64.exe ./cmd/factory
-	
-	@echo "✓ All builds complete"
-	@ls -lh dist/
-
-# Run the application
-run: build
-	./$(BINARY_NAME)
-
-# Run tests
+## test: Run all tests
 test:
 	@echo "Running tests..."
-	go test -v ./...
-
-test-verbose:
-	@echo "Running tests (verbose)..."
 	go test -v -race -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "✓ Coverage report: coverage.html"
 
-# Lint code
+## test-integration: Run integration tests
+test-integration: build
+	@echo "Running integration tests..."
+	go test -v -tags=integration ./tests/integration/...
+
+## lint: Run linters
 lint:
 	@echo "Running linters..."
-	@which golangci-lint > /dev/null || (echo "Installing golangci-lint..." && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
-	golangci-lint run ./...
+	go vet ./...
+	@which staticcheck > /dev/null && staticcheck ./... || echo "staticcheck not installed"
 
-# Format code
+## fmt: Format code
 fmt:
 	@echo "Formatting code..."
 	go fmt ./...
-	gofmt -s -w .
 
-# Clean build artifacts
+## clean: Remove build artifacts
 clean:
 	@echo "Cleaning..."
-	@rm -f $(BINARY_NAME)
-	@rm -rf dist/
-	@rm -f coverage.out coverage.html
-	@echo "✓ Clean complete"
+	rm -f $(BINARY)
+	rm -f coverage.out
 
-# Install to /usr/local/bin
+## install: Install binary to GOPATH/bin
 install: build
-	@echo "Installing $(BINARY_NAME) to /usr/local/bin..."
-	@sudo mv $(BINARY_NAME) /usr/local/bin/
-	@echo "✓ Installed successfully"
-	@echo "Run '$(BINARY_NAME) --help' to get started"
+	@echo "Installing $(BINARY)..."
+	cp $(BINARY) $(GOPATH)/bin/
 
-# Generate checksums for release
-checksums:
-	@echo "Generating checksums..."
-	@cd dist && shasum -a 256 * > SHA256SUMS
-	@echo "✓ Checksums generated: dist/SHA256SUMS"
+## install-local: Install to /usr/local/bin (requires sudo)
+install-local: build
+	@echo "Installing $(BINARY) to /usr/local/bin..."
+	sudo cp $(BINARY) /usr/local/bin/
 
-# Development: watch and rebuild on changes
-watch:
-	@which air > /dev/null || (echo "Installing air..." && go install github.com/cosmtrek/air@latest)
-	air
+## release: Create a release using goreleaser
+release:
+	@echo "Creating release..."
+	goreleaser release --clean
+
+## snapshot: Create a snapshot release (no publish)
+snapshot:
+	@echo "Creating snapshot..."
+	goreleaser release --snapshot --clean
+
+## deps: Download dependencies
+deps:
+	@echo "Downloading dependencies..."
+	go mod download
+	go mod tidy
+
+## help: Show this help
+help:
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Targets:"
+	@sed -n 's/^##//p' $(MAKEFILE_LIST) | column -t -s ':'
+
+default: help
