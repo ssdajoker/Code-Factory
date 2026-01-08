@@ -98,8 +98,8 @@ func GetDefault() *Config {
 // Returns default config if file doesn't exist
 func Load() (*Config, error) {
 	path, err := configPath()
-	if err != nil {
-		return GetDefault(), nil
+if err != nil {
+		return nil, err
 	}
 
 	data, err := os.ReadFile(path)
