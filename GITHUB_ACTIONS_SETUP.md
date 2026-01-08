@@ -80,7 +80,7 @@ jobs:
       - name: Run staticcheck
         uses: dominikh/staticcheck-action@v1
         with:
-          version: "latest"
+          version: "2023.1"
 
   build:
     runs-on: ubuntu-latest
