@@ -210,7 +210,7 @@ After adding both files, you can verify they're set up correctly:
 
 If you want to enable automatic workflow file management in the future:
 
-1. Go to: https://github.com/apps/abacusai/installations/select_target
+1. Go to your GitHub App's installation settings page (for example: `https://github.com/apps/<your-app-name>/installations/select_target`)
 2. Select your repository
 3. Under "Repository permissions", find "Workflows" and set it to "Read and write"
 4. Save changes
