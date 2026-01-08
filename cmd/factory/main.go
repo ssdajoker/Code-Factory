@@ -9,7 +9,12 @@ import (
         "github.com/ssdajoker/Code-Factory/internal/web"
 )
 
-const version = "1.0.0"
+// Version info - set by ldflags during build
+var (
+        version = "0.1.0"
+        commit  = "dev"
+        date    = "unknown"
+)
 
 var rootCmd = &cobra.Command{
         Use:   "factory",

@@ -1,0 +1,76 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: factory
+    main: ./cmd/factory
+    binary: factory
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - docs/*
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+nfpms:
+  - id: packages
+    package_name: factory
+    vendor: Code-Factory
+    homepage: https://github.com/ssdajoker/Code-Factory
+    maintainer: ssdajoker
+    description: A Spec-Driven Software Factory CLI
+    license: GPL-3.0
+    formats:
+      - deb
+      - rpm
+
+brews:
+  - name: factory
+    repository:
+      owner: ssdajoker
+      name: homebrew-tap
+    homepage: https://github.com/ssdajoker/Code-Factory
+    description: A Spec-Driven Software Factory CLI
+    license: GPL-3.0
+    skip_upload: auto
