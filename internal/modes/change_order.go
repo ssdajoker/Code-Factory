@@ -73,7 +73,11 @@ func (m *ChangeOrderMode) DetectDrift(ctx context.Context) (*ChangeOrderResult, 
 			return nil
 		}
 		if isCodeFile(path) {
-			data, _ := os.ReadFile(path)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to read file %s: %v\n", path, err)
+				return nil
+			}
 			if len(data) < 10000 {
 				codeContent.WriteString(fmt.Sprintf("\n--- %s ---\n%s\n", path, string(data)))
 			}
