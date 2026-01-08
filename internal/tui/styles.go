@@ -6,104 +6,80 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Colors
 var (
-	ColorPrimary   = lipgloss.Color("#7C3AED") // Purple
-	ColorSecondary = lipgloss.Color("#06B6D4") // Cyan
-	ColorSuccess   = lipgloss.Color("#10B981") // Green
-	ColorWarning   = lipgloss.Color("#F59E0B") // Amber
-	ColorError     = lipgloss.Color("#EF4444") // Red
-	ColorSubtle    = lipgloss.Color("#6B7280") // Gray
-	ColorText      = lipgloss.Color("#F3F4F6") // Light gray
-)
+	// Colors
+	ColorPrimary   = lipgloss.Color("99")
+	ColorSecondary = lipgloss.Color("205")
+	ColorSuccess   = lipgloss.Color("42")
+	ColorWarning   = lipgloss.Color("214")
+	ColorError     = lipgloss.Color("196")
+	ColorSubtle    = lipgloss.Color("240")
 
-// Base styles
-var (
+	// Styles
 	StyleTitle = lipgloss.NewStyle().
-		Foreground(ColorPrimary).
-		Bold(true).
-		Padding(0, 1)
-
-	StyleSubtitle = lipgloss.NewStyle().
-		Foreground(ColorSecondary).
-		Italic(true)
-
-	StyleSuccess = lipgloss.NewStyle().
-		Foreground(ColorSuccess)
-
-	StyleWarning = lipgloss.NewStyle().
-		Foreground(ColorWarning)
-
-	StyleError = lipgloss.NewStyle().
-		Foreground(ColorError).
-		Bold(true)
+			Bold(true).
+			Foreground(ColorPrimary)
 
 	StyleSubtle = lipgloss.NewStyle().
-		Foreground(ColorSubtle)
+			Foreground(ColorSubtle)
 
-	StyleText = lipgloss.NewStyle().
-		Foreground(ColorText)
+	StyleSuccess = lipgloss.NewStyle().
+			Foreground(ColorSuccess)
+
+	StyleWarning = lipgloss.NewStyle().
+			Foreground(ColorWarning)
+
+	StyleError = lipgloss.NewStyle().
+			Foreground(ColorError)
+
+	StyleSelected = lipgloss.NewStyle().
+			Foreground(ColorSecondary).
+			Bold(true)
+
+	StyleNormal = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("252"))
 )
 
-// Menu styles
-var (
-	StyleMenuItemNormal = lipgloss.NewStyle().
-		Padding(0, 2)
-
-	StyleMenuItemSelected = lipgloss.NewStyle().
-		Foreground(ColorPrimary).
-		Background(lipgloss.Color("#1F2937")).
-		Bold(true).
-		Padding(0, 2)
-)
-
-// Box styles
-var (
-	StyleBox = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(ColorPrimary).
-		Padding(1, 2)
-
-	StyleHeader = lipgloss.NewStyle().
-		Border(lipgloss.DoubleBorder()).
-		BorderForeground(ColorPrimary).
-		Padding(0, 2).
-		Align(lipgloss.Center)
-)
-
-// RenderHeader renders a centered header box
+// RenderHeader renders a centered header
 func RenderHeader(title string, width int) string {
 	if width < 40 {
-		width = 60
+		width = 80
 	}
-	headerWidth := min(width-4, 60)
 
-	header := StyleHeader.
-		Width(headerWidth).
-		Render("🏭 " + title + " 🏭")
+	border := strings.Repeat("═", width-4)
+	header := StyleTitle.Render("╔" + border + "╗")
+	header += "\n"
 
-	return lipgloss.PlaceHorizontal(width, lipgloss.Center, header)
+	padding := (width - 4 - len(title)) / 2
+	if padding < 0 {
+		padding = 0
+	}
+	titleLine := "║" + strings.Repeat(" ", padding) + title + strings.Repeat(" ", width-4-padding-len(title)) + "║"
+	header += StyleTitle.Render(titleLine)
+	header += "\n"
+	header += StyleTitle.Render("╚" + border + "╝")
+
+	return header
 }
 
-// RenderMenu renders a menu with the given items
+// RenderMenu renders a menu with selection
 func RenderMenu(items []string, selected int) string {
-	var b strings.Builder
-
+	var sb strings.Builder
 	for i, item := range items {
 		if i == selected {
-			b.WriteString(StyleMenuItemSelected.Render("▸ " + item))
+			sb.WriteString(StyleSelected.Render("  ▸ " + item))
 		} else {
-			b.WriteString(StyleMenuItemNormal.Render("  " + item))
+			sb.WriteString(StyleNormal.Render("    " + item))
 		}
-		b.WriteString("\n")
+		sb.WriteString("\n")
 	}
-
-	return b.String()
+	return sb.String()
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+// RenderLLMStatus renders the LLM status indicator
+func RenderLLMStatus(provider string, available bool) string {
+	if !available {
+		return StyleWarning.Render("⚠ No LLM")
 	}
-	return b
+	return StyleSuccess.Render("✓ " + provider)
 }
