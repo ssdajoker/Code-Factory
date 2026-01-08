@@ -1,21 +1,19 @@
 package github
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
 const (
-	githubDeviceCodeURL = "https://github.com/login/device/code"
-	githubTokenURL      = "https://github.com/login/oauth/access_token"
-	defaultClientID     = "" // User must provide their own GitHub App client ID
+	defaultClientID = "" // User must provide their own GitHub App client ID
 )
 
 // OAuthConfig holds OAuth configuration
@@ -24,21 +22,19 @@ type OAuthConfig struct {
 	Scopes   []string
 }
 
-// OAuthFlow handles GitHub device flow authentication
+// OAuthFlow handles GitHub device flow authentication using golang.org/x/oauth2
 type OAuthFlow struct {
-	config OAuthConfig
-	client *http.Client
+	config *oauth2.Config
 }
 
 // NewOAuthFlow creates a new OAuth flow handler
 func NewOAuthFlow(clientID string) *OAuthFlow {
-	scopes := []string{"repo", "read:user"}
 	return &OAuthFlow{
-		config: OAuthConfig{
+		config: &oauth2.Config{
 			ClientID: clientID,
-			Scopes:   scopes,
+			Scopes:   []string{"repo", "read:user"},
+			Endpoint: github.Endpoint,
 		},
-		client: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -48,101 +44,58 @@ func (o *OAuthFlow) InitiateDeviceFlow() (*DeviceCode, error) {
 		return nil, fmt.Errorf("GitHub OAuth client ID not configured")
 	}
 
-	data := url.Values{}
-	data.Set("client_id", o.config.ClientID)
-	data.Set("scope", joinScopes(o.config.Scopes))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	req, err := http.NewRequest("POST", githubDeviceCodeURL, bytes.NewBufferString(data.Encode()))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := o.client.Do(req)
+	deviceAuth, err := o.config.DeviceAuth(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initiate device flow: %w", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("device flow error: %s", string(body))
-	}
-
-	var result struct {
-		DeviceCode      string `json:"device_code"`
-		UserCode        string `json:"user_code"`
-		VerificationURI string `json:"verification_uri"`
-		ExpiresIn       int    `json:"expires_in"`
-		Interval        int    `json:"interval"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
+	interval := 5
+	if deviceAuth.Interval > 0 {
+		interval = int(deviceAuth.Interval)
 	}
 
 	return &DeviceCode{
-		DeviceCode:      result.DeviceCode,
-		UserCode:        result.UserCode,
-		VerificationURI: result.VerificationURI,
-		ExpiresIn:       result.ExpiresIn,
-		Interval:        result.Interval,
+		DeviceCode:      deviceAuth.DeviceCode,
+		UserCode:        deviceAuth.UserCode,
+		VerificationURI: deviceAuth.VerificationURI,
+		ExpiresIn:       int(time.Until(deviceAuth.Expiry).Seconds()),
+		Interval:        interval,
 	}, nil
 }
 
-// PollForToken polls GitHub for the access token
+// PollForToken polls GitHub for the access token using x/oauth2 device flow
 func (o *OAuthFlow) PollForToken(deviceCode string, interval int) (string, error) {
 	if interval < 5 {
 		interval = 5
 	}
 
-	for {
-		time.Sleep(time.Duration(interval) * time.Second)
-
-		data := url.Values{}
-		data.Set("client_id", o.config.ClientID)
-		data.Set("device_code", deviceCode)
-		data.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-
-		req, err := http.NewRequest("POST", githubTokenURL, bytes.NewBufferString(data.Encode()))
-		if err != nil {
-			return "", err
-		}
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Accept", "application/json")
-
-		resp, err := o.client.Do(req)
-		if err != nil {
-			continue
-		}
-
-		var result struct {
-			AccessToken string `json:"access_token"`
-			TokenType   string `json:"token_type"`
-			Scope       string `json:"scope"`
-			Error       string `json:"error"`
-		}
-		json.NewDecoder(resp.Body).Decode(&result)
-		resp.Body.Close()
-
-		switch result.Error {
-		case "":
-			if result.AccessToken != "" {
-				return result.AccessToken, nil
-			}
-		case "authorization_pending":
-			continue
-		case "slow_down":
-			interval += 5
-			continue
-		case "expired_token":
-			return "", fmt.Errorf("device code expired")
-		case "access_denied":
-			return "", fmt.Errorf("access denied by user")
-		default:
-			return "", fmt.Errorf("oauth error: %s", result.Error)
-		}
+	// Create a device auth response to use with DeviceAccessToken
+	deviceAuth := &oauth2.DeviceAuthResponse{
+		DeviceCode: deviceCode,
+		Interval:   int64(interval),
+		Expiry:     time.Now().Add(15 * time.Minute), // Default expiry
 	}
+
+	ctx := context.Background()
+
+	// Use oauth2's built-in polling with custom options
+	token, err := o.config.DeviceAccessToken(ctx, deviceAuth)
+	if err != nil {
+		// Parse common errors
+		errStr := err.Error()
+		if strings.Contains(errStr, "expired") {
+			return "", fmt.Errorf("device code expired")
+		}
+		if strings.Contains(errStr, "denied") {
+			return "", fmt.Errorf("access denied by user")
+		}
+		return "", fmt.Errorf("oauth error: %w", err)
+	}
+
+	return token.AccessToken, nil
 }
 
 // OpenBrowser opens the verification URL in the default browser
@@ -157,15 +110,4 @@ func OpenBrowser(url string) error {
 		cmd = exec.Command("xdg-open", url)
 	}
 	return cmd.Start()
-}
-
-func joinScopes(scopes []string) string {
-	result := ""
-	for i, s := range scopes {
-		if i > 0 {
-			result += " "
-		}
-		result += s
-	}
-	return result
 }
